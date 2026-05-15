@@ -15,23 +15,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// LogEntry 表示一条 Nginx 日志的结构化数据
 type LogEntry struct {
-	IP         string
-	Time       time.Time
-	Method     string
-	Path       string
-	Protocol   string
-	Status     int
-	BodyBytes  int
-	Referer    string
-	UserAgent  string
+	IP         string        // 客户端 IP
+	Time       time.Time     // 请求时间
+	Method     string        // HTTP 方法
+	Path       string        // 请求路径
+	Protocol   string        // HTTP 协议版本
+	Status     int           // 状态码
+	BodyBytes  int           // 响应体字节数
+	Referer    string        // 来源页
+	UserAgent  string        // 用户代理
 }
 
+// KeyCount 表示键值对统计结果
 type KeyCount struct {
-	Key   string
-	Count int
+	Key   string // 键
+	Count int    // 计数
 }
 
+// sortMapByValueDesc 将 map 按值降序排序
 func sortMapByValueDesc(m map[string]int) []KeyCount {
 	var list []KeyCount
 	for k, v := range m {
@@ -43,6 +46,7 @@ func sortMapByValueDesc(m map[string]int) []KeyCount {
 	return list
 }
 
+// topN 返回列表的前 N 个元素
 func topN(list []KeyCount, n int) []KeyCount {
 	if len(list) < n {
 		return list
@@ -50,13 +54,15 @@ func topN(list []KeyCount, n int) []KeyCount {
 	return list[:n]
 }
 
+// logRegex 用于解析 Nginx combined 格式日志的正则表达式
 var logRegex = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "([^"]+)" "([^"]+)"$`)
 
+// main 程序入口
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "log-analyzer",
-		Short: "Nginx log analyzer",
-		Long:  "A CLI tool for analyzing Nginx access logs",
+		Short: "Nginx 日志分析工具",
+		Long:  "一个用于分析 Nginx access.log 的命令行工具",
 	}
 
 	rootCmd.AddCommand(newGenSampleCmd())
@@ -69,10 +75,11 @@ func main() {
 	}
 }
 
+// newStatsCmd 创建 stats 子命令
 func newStatsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stats <log-file>",
-		Short: "Show log statistics",
+		Short: "显示日志统计信息",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStats(args[0])
@@ -82,19 +89,22 @@ func newStatsCmd() *cobra.Command {
 	return cmd
 }
 
+// FilterOptions 存储 filter 命令的选项
 type FilterOptions struct {
-	Status   string
-	IP       string
-	Path     string
-	Method   string
-	Since    string
-	Until    string
+	Status   string // 状态码过滤
+	IP       string // IP 过滤
+	Path     string // 路径过滤
+	Method   string // 方法过滤
+	Since    string // 开始时间
+	Until    string // 结束时间
 }
 
+// matchesStatus 检查日志是否匹配状态码过滤条件
 func matchesStatus(entry LogEntry, statusFilter string) bool {
 	if statusFilter == "" {
 		return true
 	}
+	// 支持 4xx 这种范围匹配
 	if len(statusFilter) == 3 && statusFilter[1] == 'x' && statusFilter[2] == 'x' {
 		switch statusFilter[0] {
 		case '2':
@@ -107,6 +117,7 @@ func matchesStatus(entry LogEntry, statusFilter string) bool {
 			return entry.Status >= 500 && entry.Status < 600
 		}
 	}
+	// 精确匹配
 	s, err := strconv.Atoi(statusFilter)
 	if err != nil {
 		return false
@@ -114,6 +125,7 @@ func matchesStatus(entry LogEntry, statusFilter string) bool {
 	return entry.Status == s
 }
 
+// matchesIP 检查日志是否匹配 IP 过滤条件
 func matchesIP(entry LogEntry, ipFilter string) bool {
 	if ipFilter == "" {
 		return true
@@ -121,6 +133,7 @@ func matchesIP(entry LogEntry, ipFilter string) bool {
 	return entry.IP == ipFilter
 }
 
+// matchesPath 检查日志是否匹配路径过滤条件
 func matchesPath(entry LogEntry, pathFilter string) bool {
 	if pathFilter == "" {
 		return true
@@ -128,6 +141,7 @@ func matchesPath(entry LogEntry, pathFilter string) bool {
 	return entry.Path == pathFilter
 }
 
+// matchesMethod 检查日志是否匹配方法过滤条件
 func matchesMethod(entry LogEntry, methodFilter string) bool {
 	if methodFilter == "" {
 		return true
@@ -135,12 +149,14 @@ func matchesMethod(entry LogEntry, methodFilter string) bool {
 	return entry.Method == methodFilter
 }
 
+// matchesTimeRange 检查日志是否匹配时间范围过滤条件
 func matchesTimeRange(entry LogEntry, sinceStr, untilStr string) bool {
 	if sinceStr == "" && untilStr == "" {
 		return true
 	}
 	var since, until time.Time
 	var err error
+	// 检查开始时间
 	if sinceStr != "" {
 		since, err = time.Parse(time.RFC3339, sinceStr)
 		if err != nil {
@@ -150,6 +166,7 @@ func matchesTimeRange(entry LogEntry, sinceStr, untilStr string) bool {
 			return false
 		}
 	}
+	// 检查结束时间
 	if untilStr != "" {
 		until, err = time.Parse(time.RFC3339, untilStr)
 		if err != nil {
@@ -162,28 +179,30 @@ func matchesTimeRange(entry LogEntry, sinceStr, untilStr string) bool {
 	return true
 }
 
+// newFilterCmd 创建 filter 子命令
 func newFilterCmd() *cobra.Command {
 	var opts FilterOptions
 
 	cmd := &cobra.Command{
 		Use:   "filter <log-file>",
-		Short: "Filter log entries",
+		Short: "过滤日志条目",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runFilter(args[0], opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status code (e.g. 404 or 4xx)")
-	cmd.Flags().StringVar(&opts.IP, "ip", "", "Filter by client IP")
-	cmd.Flags().StringVar(&opts.Path, "path", "", "Filter by request path (exact match)")
-	cmd.Flags().StringVar(&opts.Method, "method", "", "Filter by HTTP method (GET, POST, etc.)")
-	cmd.Flags().StringVar(&opts.Since, "since", "", "Filter by start time (RFC3339, e.g. 2006-01-02T15:04:05+08:00)")
-	cmd.Flags().StringVar(&opts.Until, "until", "", "Filter by end time (RFC3339, e.g. 2006-01-02T15:04:05+08:00)")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "按状态码过滤（例如 404 或 4xx）")
+	cmd.Flags().StringVar(&opts.IP, "ip", "", "按客户端 IP 过滤")
+	cmd.Flags().StringVar(&opts.Path, "path", "", "按请求路径过滤（精确匹配）")
+	cmd.Flags().StringVar(&opts.Method, "method", "", "按 HTTP 方法过滤（GET、POST 等）")
+	cmd.Flags().StringVar(&opts.Since, "since", "", "按开始时间过滤（RFC3339 格式，例如 2006-01-02T15:04:05+08:00）")
+	cmd.Flags().StringVar(&opts.Until, "until", "", "按结束时间过滤（RFC3339 格式，例如 2006-01-02T15:04:05+08:00）")
 
 	return cmd
 }
 
+// runFilter 执行过滤逻辑
 func runFilter(filename string, opts FilterOptions) error {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -199,6 +218,7 @@ func runFilter(filename string, opts FilterOptions) error {
 		if err != nil {
 			continue
 		}
+		// 所有条件都是 AND 关系
 		if !matchesStatus(entry, opts.Status) {
 			continue
 		}
@@ -220,6 +240,7 @@ func runFilter(filename string, opts FilterOptions) error {
 	return scanner.Err()
 }
 
+// truncate 截断超长字符串
 func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -227,6 +248,7 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+// runStats 执行统计逻辑
 func runStats(filename string) error {
 	entries, err := parseLogFile(filename)
 	if err != nil {
@@ -240,6 +262,7 @@ func runStats(filename string) error {
 	pathCounts := make(map[string]int)
 	uaCounts := make(map[string]int)
 
+	// 遍历所有日志进行统计
 	for _, e := range entries {
 		statusCounts[e.Status]++
 		ipCounts[e.IP]++
@@ -257,15 +280,17 @@ func runStats(filename string) error {
 		}
 	}
 
+	// 输出基础指标
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "METRIC\tVALUE")
-	fmt.Fprintf(w, "Total Requests\t%d\n", total)
+	fmt.Fprintln(w, "指标\t值")
+	fmt.Fprintf(w, "总请求数\t%d\n", total)
 	w.Flush()
 
+	// 输出状态码分布
 	fmt.Println()
-	fmt.Println("Status Code Distribution:")
+	fmt.Println("状态码分布：")
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "CATEGORY\tCOUNT\tPERCENTAGE")
+	fmt.Fprintln(w, "分类\t数量\t占比")
 	for _, cat := range []string{"2xx", "3xx", "4xx", "5xx"} {
 		count := categoryCounts[cat]
 		pct := float64(count) / float64(total) * 100
@@ -273,30 +298,33 @@ func runStats(filename string) error {
 	}
 	w.Flush()
 
+	// 输出 Top 10 IP
 	fmt.Println()
-	fmt.Println("Top 10 IPs:")
+	fmt.Println("Top 10 IP：")
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "IP\tREQUESTS")
+	fmt.Fprintln(w, "IP\t请求数")
 	topIPs := topN(sortMapByValueDesc(ipCounts), 10)
 	for _, kc := range topIPs {
 		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
 	}
 	w.Flush()
 
+	// 输出 Top 10 URL
 	fmt.Println()
-	fmt.Println("Top 10 URLs:")
+	fmt.Println("Top 10 URL：")
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\tREQUESTS")
+	fmt.Fprintln(w, "URL\t请求数")
 	topPaths := topN(sortMapByValueDesc(pathCounts), 10)
 	for _, kc := range topPaths {
 		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
 	}
 	w.Flush()
 
+	// 输出 Top 10 User Agent
 	fmt.Println()
-	fmt.Println("Top 10 User Agents:")
+	fmt.Println("Top 10 用户代理：")
 	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "USER AGENT\tREQUESTS")
+	fmt.Fprintln(w, "用户代理\t请求数")
 	topUAs := topN(sortMapByValueDesc(uaCounts), 10)
 	for _, kc := range topUAs {
 		fmt.Fprintf(w, "%s\t%d\n", truncate(kc.Key, 60), kc.Count)
@@ -306,6 +334,7 @@ func runStats(filename string) error {
 	return nil
 }
 
+// parseLogFile 读取并解析整个日志文件
 func parseLogFile(filename string) ([]LogEntry, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -322,7 +351,7 @@ func parseLogFile(filename string) ([]LogEntry, error) {
 		line := scanner.Text()
 		entry, err := parseLogLine(line)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: line %d: %v\n", lineNum, err)
+			fmt.Fprintf(os.Stderr, "警告: 第 %d 行: %v\n", lineNum, err)
 			continue
 		}
 		entries = append(entries, entry)
@@ -335,25 +364,26 @@ func parseLogFile(filename string) ([]LogEntry, error) {
 	return entries, nil
 }
 
+// parseLogLine 解析单条日志行
 func parseLogLine(line string) (LogEntry, error) {
 	matches := logRegex.FindStringSubmatch(line)
 	if len(matches) != 10 {
-		return LogEntry{}, fmt.Errorf("unable to parse line")
+		return LogEntry{}, fmt.Errorf("无法解析日志行")
 	}
 
 	status, err := strconv.Atoi(matches[6])
 	if err != nil {
-		return LogEntry{}, fmt.Errorf("invalid status: %v", err)
+		return LogEntry{}, fmt.Errorf("无效的状态码: %v", err)
 	}
 
 	bodyBytes, err := strconv.Atoi(matches[7])
 	if err != nil {
-		return LogEntry{}, fmt.Errorf("invalid body bytes: %v", err)
+		return LogEntry{}, fmt.Errorf("无效的字节数: %v", err)
 	}
 
 	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", matches[2])
 	if err != nil {
-		return LogEntry{}, fmt.Errorf("invalid time: %v", err)
+		return LogEntry{}, fmt.Errorf("无效的时间: %v", err)
 	}
 
 	return LogEntry{
@@ -369,24 +399,26 @@ func parseLogLine(line string) (LogEntry, error) {
 	}, nil
 }
 
+// newGenSampleCmd 创建 gen-sample 子命令
 func newGenSampleCmd() *cobra.Command {
 	var lines int
 	var output string
 
 	cmd := &cobra.Command{
 		Use:   "gen-sample",
-		Short: "Generate sample Nginx access logs",
+		Short: "生成 Nginx 访问日志样本",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return generateSample(lines, output)
 		},
 	}
 
-	cmd.Flags().IntVarP(&lines, "lines", "n", 100, "Number of lines to generate")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "Output file (default: stdout)")
+	cmd.Flags().IntVarP(&lines, "lines", "n", 100, "生成的日志行数")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件（默认输出到标准输出）")
 
 	return cmd
 }
 
+// generateSample 生成样本日志
 func generateSample(lines int, output string) error {
 	var w io.Writer = os.Stdout
 	if output != "" {
@@ -408,9 +440,10 @@ func generateSample(lines int, output string) error {
 	return nil
 }
 
+// generateLogLine 生成单条样本日志行
 func generateLogLine(r *rand.Rand) string {
 	ip := generateIP(r)
-	ts := time.Now().Add(-time.Duration(r.Intn(86400)) * time.Second)
+	ts := time.Now().Add(-time.Duration(r.Intn(86400)) * time.Second) // 随机过去 24 小时内的时间
 	method := pickMethod(r)
 	path := pickPath(r)
 	proto := "HTTP/1.1"
@@ -432,6 +465,7 @@ func generateLogLine(r *rand.Rand) string {
 	)
 }
 
+// generateIP 生成随机 IP 地址
 func generateIP(r *rand.Rand) string {
 	return fmt.Sprintf("%d.%d.%d.%d",
 		r.Intn(256),
@@ -441,11 +475,13 @@ func generateIP(r *rand.Rand) string {
 	)
 }
 
+// pickMethod 随机选择 HTTP 方法
 func pickMethod(r *rand.Rand) string {
 	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH"}
 	return methods[r.Intn(len(methods))]
 }
 
+// pickPath 随机选择请求路径
 func pickPath(r *rand.Rand) string {
 	paths := []string{
 		"/",
@@ -467,11 +503,13 @@ func pickPath(r *rand.Rand) string {
 	return paths[r.Intn(len(paths))]
 }
 
+// pickStatus 随机选择状态码（200 出现概率更高）
 func pickStatus(r *rand.Rand) int {
 	statuses := []int{200, 200, 200, 200, 200, 201, 301, 302, 400, 401, 403, 404, 500}
 	return statuses[r.Intn(len(statuses))]
 }
 
+// pickReferer 随机选择来源页
 func pickReferer(r *rand.Rand) string {
 	if r.Float32() < 0.3 {
 		return "-"
@@ -486,6 +524,7 @@ func pickReferer(r *rand.Rand) string {
 	return referers[r.Intn(len(referers))]
 }
 
+// pickUserAgent 随机选择用户代理
 func pickUserAgent(r *rand.Rand) string {
 	uas := []string{
 		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
