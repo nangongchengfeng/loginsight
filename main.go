@@ -63,9 +63,38 @@ func runStats(filename string) error {
 		return err
 	}
 
+	total := len(entries)
+	statusCounts := make(map[int]int)
+	categoryCounts := make(map[string]int)
+
+	for _, e := range entries {
+		statusCounts[e.Status]++
+		switch {
+		case e.Status >= 200 && e.Status < 300:
+			categoryCounts["2xx"]++
+		case e.Status >= 300 && e.Status < 400:
+			categoryCounts["3xx"]++
+		case e.Status >= 400 && e.Status < 500:
+			categoryCounts["4xx"]++
+		case e.Status >= 500 && e.Status < 600:
+			categoryCounts["5xx"]++
+		}
+	}
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "METRIC\tVALUE")
-	fmt.Fprintf(w, "Total Requests\t%d\n", len(entries))
+	fmt.Fprintf(w, "Total Requests\t%d\n", total)
+	w.Flush()
+
+	fmt.Println()
+	fmt.Println("Status Code Distribution:")
+	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "CATEGORY\tCOUNT\tPERCENTAGE")
+	for _, cat := range []string{"2xx", "3xx", "4xx", "5xx"} {
+		count := categoryCounts[cat]
+		pct := float64(count) / float64(total) * 100
+		fmt.Fprintf(w, "%s\t%d\t%.1f%%\n", cat, count, pct)
+	}
 	w.Flush()
 
 	return nil

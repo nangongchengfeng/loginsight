@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,9 +10,9 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] 按状态码分组计数
-- [ ] 按 2xx/3xx/4xx/5xx 分类汇总
-- [ ] 表格输出各分类的数量和占比
+- [x] 按状态码分组计数
+- [x] 按 2xx/3xx/4xx/5xx 分类汇总
+- [x] 表格输出各分类的数量和占比
 
 ## Blocked by
 
