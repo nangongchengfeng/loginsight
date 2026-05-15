@@ -81,6 +81,13 @@ func newStatsCmd() *cobra.Command {
 	return cmd
 }
 
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
 func runStats(filename string) error {
 	entries, err := parseLogFile(filename)
 	if err != nil {
@@ -92,11 +99,13 @@ func runStats(filename string) error {
 	categoryCounts := make(map[string]int)
 	ipCounts := make(map[string]int)
 	pathCounts := make(map[string]int)
+	uaCounts := make(map[string]int)
 
 	for _, e := range entries {
 		statusCounts[e.Status]++
 		ipCounts[e.IP]++
 		pathCounts[e.Path]++
+		uaCounts[e.UserAgent]++
 		switch {
 		case e.Status >= 200 && e.Status < 300:
 			categoryCounts["2xx"]++
@@ -142,6 +151,16 @@ func runStats(filename string) error {
 	topPaths := topN(sortMapByValueDesc(pathCounts), 10)
 	for _, kc := range topPaths {
 		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
+	}
+	w.Flush()
+
+	fmt.Println()
+	fmt.Println("Top 10 User Agents:")
+	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "USER AGENT\tREQUESTS")
+	topUAs := topN(sortMapByValueDesc(uaCounts), 10)
+	for _, kc := range topUAs {
+		fmt.Fprintf(w, "%s\t%d\n", truncate(kc.Key, 60), kc.Count)
 	}
 	w.Flush()
 
