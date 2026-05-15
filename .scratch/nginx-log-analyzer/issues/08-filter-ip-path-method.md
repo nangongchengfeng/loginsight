@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,10 +10,10 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] `--ip` flag 按客户端 IP 过滤
-- [ ] `--path` flag 按请求路径过滤（包含匹配）
-- [ ] `--method` flag 按 HTTP 方法过滤（GET/POST/PUT 等）
-- [ ] 多个条件是 AND 关系
+- [x] `--ip` flag 按客户端 IP 过滤
+- [x] `--path` flag 按请求路径过滤（包含匹配）
+- [x] `--method` flag 按 HTTP 方法过滤（GET/POST/PUT 等）
+- [x] 多个条件是 AND 关系
 
 ## Blocked by
 

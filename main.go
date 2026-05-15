@@ -114,6 +114,27 @@ func matchesStatus(entry LogEntry, statusFilter string) bool {
 	return entry.Status == s
 }
 
+func matchesIP(entry LogEntry, ipFilter string) bool {
+	if ipFilter == "" {
+		return true
+	}
+	return entry.IP == ipFilter
+}
+
+func matchesPath(entry LogEntry, pathFilter string) bool {
+	if pathFilter == "" {
+		return true
+	}
+	return entry.Path == pathFilter
+}
+
+func matchesMethod(entry LogEntry, methodFilter string) bool {
+	if methodFilter == "" {
+		return true
+	}
+	return entry.Method == methodFilter
+}
+
 func newFilterCmd() *cobra.Command {
 	var opts FilterOptions
 
@@ -127,6 +148,9 @@ func newFilterCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status code (e.g. 404 or 4xx)")
+	cmd.Flags().StringVar(&opts.IP, "ip", "", "Filter by client IP")
+	cmd.Flags().StringVar(&opts.Path, "path", "", "Filter by request path (exact match)")
+	cmd.Flags().StringVar(&opts.Method, "method", "", "Filter by HTTP method (GET, POST, etc.)")
 
 	return cmd
 }
@@ -147,6 +171,15 @@ func runFilter(filename string, opts FilterOptions) error {
 			continue
 		}
 		if !matchesStatus(entry, opts.Status) {
+			continue
+		}
+		if !matchesIP(entry, opts.IP) {
+			continue
+		}
+		if !matchesPath(entry, opts.Path) {
+			continue
+		}
+		if !matchesMethod(entry, opts.Method) {
 			continue
 		}
 		fmt.Println(line)
