@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,11 +10,11 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] 解析 Nginx combined 格式日志行成结构化数据
-- [ ] `stats` 子命令接受日志文件路径作为参数
-- [ ] 读取日志文件
-- [ ] 统计并输出总请求数
-- [ ] 使用 text/tabwriter 格式化输出
+- [x] 解析 Nginx combined 格式日志行成结构化数据
+- [x] `stats` 子命令接受日志文件路径作为参数
+- [x] 读取日志文件
+- [x] 统计并输出总请求数
+- [x] 使用 text/tabwriter 格式化输出
 
 ## Blocked by
 

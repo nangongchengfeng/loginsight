@@ -1,14 +1,32 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
+	"regexp"
+	"strconv"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
 )
+
+type LogEntry struct {
+	IP         string
+	Time       time.Time
+	Method     string
+	Path       string
+	Protocol   string
+	Status     int
+	BodyBytes  int
+	Referer    string
+	UserAgent  string
+}
+
+var logRegex = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "([^"]+)" "([^"]+)"$`)
 
 func main() {
 	rootCmd := &cobra.Command{
@@ -18,11 +36,102 @@ func main() {
 	}
 
 	rootCmd.AddCommand(newGenSampleCmd())
+	rootCmd.AddCommand(newStatsCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func newStatsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stats <log-file>",
+		Short: "Show log statistics",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStats(args[0])
+		},
+	}
+
+	return cmd
+}
+
+func runStats(filename string) error {
+	entries, err := parseLogFile(filename)
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "METRIC\tVALUE")
+	fmt.Fprintf(w, "Total Requests\t%d\n", len(entries))
+	w.Flush()
+
+	return nil
+}
+
+func parseLogFile(filename string) ([]LogEntry, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var entries []LogEntry
+	scanner := bufio.NewScanner(f)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+		entry, err := parseLogLine(line)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: line %d: %v\n", lineNum, err)
+			continue
+		}
+		entries = append(entries, entry)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return entries, nil
+}
+
+func parseLogLine(line string) (LogEntry, error) {
+	matches := logRegex.FindStringSubmatch(line)
+	if len(matches) != 10 {
+		return LogEntry{}, fmt.Errorf("unable to parse line")
+	}
+
+	status, err := strconv.Atoi(matches[6])
+	if err != nil {
+		return LogEntry{}, fmt.Errorf("invalid status: %v", err)
+	}
+
+	bodyBytes, err := strconv.Atoi(matches[7])
+	if err != nil {
+		return LogEntry{}, fmt.Errorf("invalid body bytes: %v", err)
+	}
+
+	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", matches[2])
+	if err != nil {
+		return LogEntry{}, fmt.Errorf("invalid time: %v", err)
+	}
+
+	return LogEntry{
+		IP:         matches[1],
+		Time:       t,
+		Method:     matches[3],
+		Path:       matches[4],
+		Protocol:   matches[5],
+		Status:     status,
+		BodyBytes:  bodyBytes,
+		Referer:    matches[8],
+		UserAgent:  matches[9],
+	}, nil
 }
 
 func newGenSampleCmd() *cobra.Command {
