@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,9 +10,9 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] `filter` 子命令接受日志文件路径
-- [ ] `--status` flag 接受状态码（如 404）或状态码范围（如 4xx）
-- [ ] 输出匹配的日志行
+- [x] `filter` 子命令接受日志文件路径
+- [x] `--status` flag 接受状态码（如 404）或状态码范围（如 4xx）
+- [x] 输出匹配的日志行
 
 ## Blocked by
 

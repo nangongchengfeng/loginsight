@@ -61,6 +61,7 @@ func main() {
 
 	rootCmd.AddCommand(newGenSampleCmd())
 	rootCmd.AddCommand(newStatsCmd())
+	rootCmd.AddCommand(newFilterCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -79,6 +80,79 @@ func newStatsCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+type FilterOptions struct {
+	Status   string
+	IP       string
+	Path     string
+	Method   string
+	Since    string
+	Until    string
+}
+
+func matchesStatus(entry LogEntry, statusFilter string) bool {
+	if statusFilter == "" {
+		return true
+	}
+	if len(statusFilter) == 3 && statusFilter[1] == 'x' && statusFilter[2] == 'x' {
+		switch statusFilter[0] {
+		case '2':
+			return entry.Status >= 200 && entry.Status < 300
+		case '3':
+			return entry.Status >= 300 && entry.Status < 400
+		case '4':
+			return entry.Status >= 400 && entry.Status < 500
+		case '5':
+			return entry.Status >= 500 && entry.Status < 600
+		}
+	}
+	s, err := strconv.Atoi(statusFilter)
+	if err != nil {
+		return false
+	}
+	return entry.Status == s
+}
+
+func newFilterCmd() *cobra.Command {
+	var opts FilterOptions
+
+	cmd := &cobra.Command{
+		Use:   "filter <log-file>",
+		Short: "Filter log entries",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runFilter(args[0], opts)
+		},
+	}
+
+	cmd.Flags().StringVar(&opts.Status, "status", "", "Filter by status code (e.g. 404 or 4xx)")
+
+	return cmd
+}
+
+func runFilter(filename string, opts FilterOptions) error {
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		entry, err := parseLogLine(line)
+		if err != nil {
+			continue
+		}
+		if !matchesStatus(entry, opts.Status) {
+			continue
+		}
+		fmt.Println(line)
+	}
+
+	return scanner.Err()
 }
 
 func truncate(s string, maxLen int) string {
