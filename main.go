@@ -135,6 +135,33 @@ func matchesMethod(entry LogEntry, methodFilter string) bool {
 	return entry.Method == methodFilter
 }
 
+func matchesTimeRange(entry LogEntry, sinceStr, untilStr string) bool {
+	if sinceStr == "" && untilStr == "" {
+		return true
+	}
+	var since, until time.Time
+	var err error
+	if sinceStr != "" {
+		since, err = time.Parse(time.RFC3339, sinceStr)
+		if err != nil {
+			return false
+		}
+		if entry.Time.Before(since) {
+			return false
+		}
+	}
+	if untilStr != "" {
+		until, err = time.Parse(time.RFC3339, untilStr)
+		if err != nil {
+			return false
+		}
+		if entry.Time.After(until) {
+			return false
+		}
+	}
+	return true
+}
+
 func newFilterCmd() *cobra.Command {
 	var opts FilterOptions
 
@@ -151,6 +178,8 @@ func newFilterCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.IP, "ip", "", "Filter by client IP")
 	cmd.Flags().StringVar(&opts.Path, "path", "", "Filter by request path (exact match)")
 	cmd.Flags().StringVar(&opts.Method, "method", "", "Filter by HTTP method (GET, POST, etc.)")
+	cmd.Flags().StringVar(&opts.Since, "since", "", "Filter by start time (RFC3339, e.g. 2006-01-02T15:04:05+08:00)")
+	cmd.Flags().StringVar(&opts.Until, "until", "", "Filter by end time (RFC3339, e.g. 2006-01-02T15:04:05+08:00)")
 
 	return cmd
 }
@@ -180,6 +209,9 @@ func runFilter(filename string, opts FilterOptions) error {
 			continue
 		}
 		if !matchesMethod(entry, opts.Method) {
+			continue
+		}
+		if !matchesTimeRange(entry, opts.Since, opts.Until) {
 			continue
 		}
 		fmt.Println(line)
