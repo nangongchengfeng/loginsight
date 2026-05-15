@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"text/tabwriter"
 	"time"
@@ -24,6 +25,29 @@ type LogEntry struct {
 	BodyBytes  int
 	Referer    string
 	UserAgent  string
+}
+
+type KeyCount struct {
+	Key   string
+	Count int
+}
+
+func sortMapByValueDesc(m map[string]int) []KeyCount {
+	var list []KeyCount
+	for k, v := range m {
+		list = append(list, KeyCount{k, v})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Count > list[j].Count
+	})
+	return list
+}
+
+func topN(list []KeyCount, n int) []KeyCount {
+	if len(list) < n {
+		return list
+	}
+	return list[:n]
 }
 
 var logRegex = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "([^"]+)" "([^"]+)"$`)
@@ -66,9 +90,11 @@ func runStats(filename string) error {
 	total := len(entries)
 	statusCounts := make(map[int]int)
 	categoryCounts := make(map[string]int)
+	ipCounts := make(map[string]int)
 
 	for _, e := range entries {
 		statusCounts[e.Status]++
+		ipCounts[e.IP]++
 		switch {
 		case e.Status >= 200 && e.Status < 300:
 			categoryCounts["2xx"]++
@@ -94,6 +120,16 @@ func runStats(filename string) error {
 		count := categoryCounts[cat]
 		pct := float64(count) / float64(total) * 100
 		fmt.Fprintf(w, "%s\t%d\t%.1f%%\n", cat, count, pct)
+	}
+	w.Flush()
+
+	fmt.Println()
+	fmt.Println("Top 10 IPs:")
+	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "IP\tREQUESTS")
+	topIPs := topN(sortMapByValueDesc(ipCounts), 10)
+	for _, kc := range topIPs {
+		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
 	}
 	w.Flush()
 
