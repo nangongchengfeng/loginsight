@@ -91,10 +91,12 @@ func runStats(filename string) error {
 	statusCounts := make(map[int]int)
 	categoryCounts := make(map[string]int)
 	ipCounts := make(map[string]int)
+	pathCounts := make(map[string]int)
 
 	for _, e := range entries {
 		statusCounts[e.Status]++
 		ipCounts[e.IP]++
+		pathCounts[e.Path]++
 		switch {
 		case e.Status >= 200 && e.Status < 300:
 			categoryCounts["2xx"]++
@@ -129,6 +131,16 @@ func runStats(filename string) error {
 	fmt.Fprintln(w, "IP\tREQUESTS")
 	topIPs := topN(sortMapByValueDesc(ipCounts), 10)
 	for _, kc := range topIPs {
+		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
+	}
+	w.Flush()
+
+	fmt.Println()
+	fmt.Println("Top 10 URLs:")
+	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "URL\tREQUESTS")
+	topPaths := topN(sortMapByValueDesc(pathCounts), 10)
+	for _, kc := range topPaths {
 		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
 	}
 	w.Flush()
