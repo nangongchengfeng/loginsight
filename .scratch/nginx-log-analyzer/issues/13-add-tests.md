@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,10 +10,10 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] parser 包的单元测试，覆盖各种日志行格式
-- [ ] analyzer 包的单元测试，验证统计结果
-- [ ] filter 包的单元测试，验证过滤逻辑
-- [ ] `go test` 全部通过
+- [x] parser 包的单元测试，覆盖各种日志行格式
+- [x] analyzer 包的单元测试，验证统计结果
+- [x] filter 包的单元测试，验证过滤逻辑
+- [x] `go test` 全部通过
 
 ## Blocked by
 
