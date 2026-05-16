@@ -1,16 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/nangongchengfeng/go-cli/internal/analyzer"
+	"github.com/nangongchengfeng/go-cli/internal/filter"
 	"github.com/nangongchengfeng/go-cli/internal/parser"
 )
 
@@ -46,102 +45,16 @@ func newStatsCmd() *cobra.Command {
 	return cmd
 }
 
-// FilterOptions 存储 filter 命令的选项
-type FilterOptions struct {
-	Status   string // 状态码过滤
-	IP       string // IP 过滤
-	Path     string // 路径过滤
-	Method   string // 方法过滤
-	Since    string // 开始时间
-	Until    string // 结束时间
-}
-
-// matchesStatus 检查日志是否匹配状态码过滤条件
-func matchesStatus(entry parser.LogEntry, statusFilter string) bool {
-	if statusFilter == "" {
-		return true
-	}
-	if len(statusFilter) == 3 && statusFilter[1] == 'x' && statusFilter[2] == 'x' {
-		switch statusFilter[0] {
-		case '2':
-			return entry.Status >= 200 && entry.Status < 300
-		case '3':
-			return entry.Status >= 300 && entry.Status < 400
-		case '4':
-			return entry.Status >= 400 && entry.Status < 500
-		case '5':
-			return entry.Status >= 500 && entry.Status < 600
-		}
-	}
-	s, err := strconv.Atoi(statusFilter)
-	if err != nil {
-		return false
-	}
-	return entry.Status == s
-}
-
-// matchesIP 检查日志是否匹配 IP 过滤条件
-func matchesIP(entry parser.LogEntry, ipFilter string) bool {
-	if ipFilter == "" {
-		return true
-	}
-	return entry.IP == ipFilter
-}
-
-// matchesPath 检查日志是否匹配路径过滤条件
-func matchesPath(entry parser.LogEntry, pathFilter string) bool {
-	if pathFilter == "" {
-		return true
-	}
-	return entry.Path == pathFilter
-}
-
-// matchesMethod 检查日志是否匹配方法过滤条件
-func matchesMethod(entry parser.LogEntry, methodFilter string) bool {
-	if methodFilter == "" {
-		return true
-	}
-	return entry.Method == methodFilter
-}
-
-// matchesTimeRange 检查日志是否匹配时间范围过滤条件
-func matchesTimeRange(entry parser.LogEntry, sinceStr, untilStr string) bool {
-	if sinceStr == "" && untilStr == "" {
-		return true
-	}
-	var since, until time.Time
-	var err error
-	if sinceStr != "" {
-		since, err = time.Parse(time.RFC3339, sinceStr)
-		if err != nil {
-			return false
-		}
-		if entry.Time.Before(since) {
-			return false
-		}
-	}
-	if untilStr != "" {
-		until, err = time.Parse(time.RFC3339, untilStr)
-		if err != nil {
-			return false
-		}
-		if entry.Time.After(until) {
-			return false
-		}
-	}
-	return true
-}
-
 // newFilterCmd 创建 filter 子命令
 func newFilterCmd() *cobra.Command {
-	var opts FilterOptions
+	var opts filter.Options
 
 	cmd := &cobra.Command{
 		Use:   "filter <log-file>",
 		Short: "过滤日志条目",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runFilter(args[0], opts)
+			return filter.Run(args[0], opts)
 		},
 	}
 
@@ -153,43 +66,6 @@ func newFilterCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Until, "until", "", "按结束时间过滤（RFC3339 格式，例如 2006-01-02T15:04:05+08:00）")
 
 	return cmd
-}
-
-// runFilter 执行过滤逻辑
-func runFilter(filename string, opts FilterOptions) error {
-	f, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		entry, err := parser.ParseLine(line)
-		if err != nil {
-			continue
-		}
-		if !matchesStatus(entry, opts.Status) {
-			continue
-		}
-		if !matchesIP(entry, opts.IP) {
-			continue
-		}
-		if !matchesPath(entry, opts.Path) {
-			continue
-		}
-		if !matchesMethod(entry, opts.Method) {
-			continue
-		}
-		if !matchesTimeRange(entry, opts.Since, opts.Until) {
-			continue
-		}
-		fmt.Println(line)
-	}
-
-	return scanner.Err()
 }
 
 // runStats 执行统计逻辑
