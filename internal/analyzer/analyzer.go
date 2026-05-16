@@ -196,8 +196,8 @@ func renderIPCard(result StatsResult) {
 
 	topItems := TopN(SortMapByValueDesc(result.IPCounts), 10)
 
-	header := lipgloss.NewStyle().Bold(true).Foreground(ui.ColorGray).Render(fmt.Sprintf("%-18s %8s", "IP 地址", "请求数"))
-	content.WriteString(header + "\n")
+	// 表头用普通字符串，不通过lipgloss渲染以避免换行
+	content.WriteString(fmt.Sprintf("IP 地址                   请求数\n"))
 	content.WriteString(strings.Repeat("─", 28) + "\n")
 
 	for _, kc := range topItems {
@@ -222,8 +222,7 @@ func renderURLCard(result StatsResult) {
 
 	topItems := TopN(SortMapByValueDesc(result.PathCounts), 10)
 
-	header := lipgloss.NewStyle().Bold(true).Foreground(ui.ColorGray).Render(fmt.Sprintf("%-30s %8s", "URL", "请求数"))
-	content.WriteString(header + "\n")
+	content.WriteString(fmt.Sprintf("URL                                 请求数\n"))
 	content.WriteString(strings.Repeat("─", 40) + "\n")
 
 	for _, kc := range topItems {
@@ -248,15 +247,14 @@ func renderUACard(result StatsResult) {
 
 	topItems := TopN(SortMapByValueDesc(result.UACounts), 10)
 
-	header := lipgloss.NewStyle().Bold(true).Foreground(ui.ColorGray).Render(fmt.Sprintf("%-55s %8s", "用户代理", "请求数"))
-	content.WriteString(header + "\n")
+	content.WriteString(fmt.Sprintf("用户代理                                                        请求数\n"))
 	content.WriteString(strings.Repeat("─", 65) + "\n")
 
 	for _, kc := range topItems {
 		content.WriteString(fmt.Sprintf("%-55s %8d\n", truncate(kc.Key, 55), kc.Count))
 	}
 
-	card := ui.BaseCardStyle.Copy().Width(74).Render(
+	card := ui.BaseCardStyle.Copy().Width(80).Render( // 增大宽度
 		lipgloss.JoinVertical(lipgloss.Left,
 			ui.HeaderStyle.Render("Top 10 用户代理"),
 			content.String(),
