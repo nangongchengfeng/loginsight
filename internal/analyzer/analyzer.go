@@ -81,6 +81,10 @@ func PrintStats(result StatsResult) {
 	renderStatusDistribution(result)
 	fmt.Println()
 
+	// 错误率指标
+	renderErrorRates(result)
+	fmt.Println()
+
 	// Top 10 IP
 	fmt.Println(ui.HeaderStyle.Render("Top 10 IP"))
 	// 显示唯一 IP 总数
@@ -96,6 +100,27 @@ func PrintStats(result StatsResult) {
 	// Top 10 User-Agent
 	fmt.Println(ui.HeaderStyle.Render("Top 10 用户代理"))
 	renderTopTableWithTruncate("用户代理", "请求数", result.UACounts, 10, 60)
+}
+
+// renderErrorRates 渲染错误率指标
+func renderErrorRates(result StatsResult) {
+	fmt.Println(ui.HeaderStyle.Render("错误率指标"))
+
+	fourXXCount := result.CategoryCounts["4xx"]
+	fiveXXCount := result.CategoryCounts["5xx"]
+	totalErrCount := fourXXCount + fiveXXCount
+
+	fourXXRate := float64(fourXXCount) / float64(result.Total) * 100
+	fiveXXRate := float64(fiveXXCount) / float64(result.Total) * 100
+	totalErrRate := float64(totalErrCount) / float64(result.Total) * 100
+
+	// 4xx 错误率
+	fmt.Printf("4xx 错误率:  %.1f%% (%d 次)\n", fourXXRate, fourXXCount)
+	// 5xx 错误率，用红色高亮
+	fiveXXStr := lipgloss.NewStyle().Foreground(ui.ColorRed).Bold(true).Render(fmt.Sprintf("%.1f%%", fiveXXRate))
+	fmt.Printf("5xx 错误率:  %s (%d 次)\n", fiveXXStr, fiveXXCount)
+	// 总错误率
+	fmt.Printf("总错误率:   %.1f%% (%d 次)\n", totalErrRate, totalErrCount)
 }
 
 // renderStatusDistribution 渲染状态码分布

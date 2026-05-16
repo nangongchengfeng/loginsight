@@ -63,6 +63,39 @@ func TestSortStatusMapByValueDesc(t *testing.T) {
 	}
 }
 
+func TestErrorRates(t *testing.T) {
+	entries := []parser.LogEntry{
+		{IP: "1.1.1.1", Status: 200},
+		{IP: "1.1.1.1", Status: 200},
+		{IP: "2.2.2.2", Status: 404},
+		{IP: "3.3.3.3", Status: 500},
+		{IP: "1.1.1.1", Status: 403},
+		{IP: "4.4.4.4", Status: 502},
+		{IP: "5.5.5.5", Status: 200},
+		{IP: "6.6.6.6", Status: 302},
+	}
+
+	result := Analyze(entries)
+
+	// 4xx: 404, 403 -> 2 个
+	fourXXRate := float64(result.CategoryCounts["4xx"]) / float64(result.Total) * 100
+	if fourXXRate != 25.0 {
+		t.Errorf("4xx rate = %.1f, want 25.0", fourXXRate)
+	}
+
+	// 5xx: 500, 502 -> 2 个
+	fiveXXRate := float64(result.CategoryCounts["5xx"]) / float64(result.Total) * 100
+	if fiveXXRate != 25.0 {
+		t.Errorf("5xx rate = %.1f, want 25.0", fiveXXRate)
+	}
+
+	// 总错误率: 4 个
+	totalErrRate := float64(result.CategoryCounts["4xx"]+result.CategoryCounts["5xx"]) / float64(result.Total) * 100
+	if totalErrRate != 50.0 {
+		t.Errorf("total error rate = %.1f, want 50.0", totalErrRate)
+	}
+}
+
 func TestSortMapByValueDesc(t *testing.T) {
 	m := map[string]int{"a": 3, "b": 1, "c": 2}
 	result := SortMapByValueDesc(m)
