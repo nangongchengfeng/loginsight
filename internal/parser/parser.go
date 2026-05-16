@@ -95,6 +95,12 @@ func ParseFile(filename string) ([]LogEntry, error) {
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
+
+		// 跳过空行
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
 		var entry LogEntry
 		var err error
 
