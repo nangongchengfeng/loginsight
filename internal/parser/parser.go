@@ -4,10 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"regexp"
 	"strconv"
 	"time"
 
+	"github.com/satyrius/gonx"
 	"log-analyzer/internal/ui"
 )
 
@@ -24,8 +24,19 @@ type LogEntry struct {
 	UserAgent  string        // 用户代理
 }
 
-// logRegex 用于解析 Nginx combined 格式日志的正则表达式
-var logRegex = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "([^"]+)" "([^"]+)"$`)
+// Nginx 日志格式定义
+const (
+	// NginxCombinedFormat Nginx combined 日志格式
+	NginxCombinedFormat = `$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"`
+)
+
+// parser 全局 gonx 解析器
+var parser *gonx.Parser
+
+func init() {
+	// 初始化 gonx 解析器
+	parser = gonx.NewParser(NginxCombinedFormat)
+}
 
 // ParseFile 读取并解析整个日志文件
 func ParseFile(filename string) ([]LogEntry, error) {
@@ -73,35 +84,87 @@ func ParseFile(filename string) ([]LogEntry, error) {
 
 // ParseLine 解析单条日志行
 func ParseLine(line string) (LogEntry, error) {
-	matches := logRegex.FindStringSubmatch(line)
-	if len(matches) != 10 {
-		return LogEntry{}, fmt.Errorf("无法解析日志行")
-	}
-
-	status, err := strconv.Atoi(matches[6])
+	// 使用 gonx 解析
+	record, err := parser.ParseString(line)
 	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的状态码: %v", err)
+		return LogEntry{}, fmt.Errorf("无法解析日志行: %w", err)
 	}
 
-	bodyBytes, err := strconv.Atoi(matches[7])
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的字节数: %v", err)
+	// 提取字段
+	entry := LogEntry{}
+	entry.IP, _ = record.Field("remote_addr")
+
+	// 解析时间
+	timeStr, _ := record.Field("time_local")
+	if timeStr != "" {
+		t, err := time.Parse("02/Jan/2006:15:04:05 -0700", timeStr)
+		if err != nil {
+			return LogEntry{}, fmt.Errorf("无效的时间: %w", err)
+		}
+		entry.Time = t
 	}
 
-	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", matches[2])
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的时间: %v", err)
+	// 解析 request (method path protocol)
+	request, _ := record.Field("request")
+	if request != "" {
+		parts := splitRequest(request)
+		if len(parts) >= 1 {
+			entry.Method = parts[0]
+		}
+		if len(parts) >= 2 {
+			entry.Path = parts[1]
+		}
+		if len(parts) >= 3 {
+			entry.Protocol = parts[2]
+		}
 	}
 
-	return LogEntry{
-		IP:         matches[1],
-		Time:       t,
-		Method:     matches[3],
-		Path:       matches[4],
-		Protocol:   matches[5],
-		Status:     status,
-		BodyBytes:  bodyBytes,
-		Referer:    matches[8],
-		UserAgent:  matches[9],
-	}, nil
+	// 解析状态码
+	statusStr, _ := record.Field("status")
+	if statusStr != "" {
+		status, err := strconv.Atoi(statusStr)
+		if err != nil {
+			return LogEntry{}, fmt.Errorf("无效的状态码: %w", err)
+		}
+		entry.Status = status
+	}
+
+	// 解析 body_bytes_sent
+	bytesStr, _ := record.Field("body_bytes_sent")
+	if bytesStr != "" {
+		bodyBytes, err := strconv.Atoi(bytesStr)
+		if err != nil {
+			return LogEntry{}, fmt.Errorf("无效的字节数: %w", err)
+		}
+		entry.BodyBytes = bodyBytes
+	}
+
+	entry.Referer, _ = record.Field("http_referer")
+	entry.UserAgent, _ = record.Field("http_user_agent")
+
+	return entry, nil
+}
+
+// splitRequest 将 request 字符串拆分为 method, path, protocol
+func splitRequest(request string) []string {
+	var parts []string
+	current := ""
+	inQuotes := false
+
+	for _, c := range request {
+		if c == '"' {
+			inQuotes = !inQuotes
+		} else if c == ' ' && !inQuotes {
+			if current != "" {
+				parts = append(parts, current)
+				current = ""
+			}
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		parts = append(parts, current)
+	}
+	return parts
 }
