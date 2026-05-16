@@ -170,22 +170,19 @@ func renderHourlyCard(result StatsResult) {
 		}
 	}
 
-	// 6列一行，更整齐
-	for row := 0; row < 4; row++ {
-		for col := 0; col < 6; col++ {
-			h := row*6 + col
-			count := result.HourlyCounts[h]
-			if count == 0 {
-				content.WriteString(fmt.Sprintf("%02d -  ", h))
-			} else {
-				bar := ui.RenderBar(count, maxCount, 6, ui.ColorBlue)
-				content.WriteString(fmt.Sprintf("%02d %2d %s  ", h, count, bar))
-			}
+	for h := 0; h < 24; h++ {
+		count := result.HourlyCounts[h]
+		pct := float64(count) / float64(result.Total) * 100
+
+		if count == 0 {
+			content.WriteString(fmt.Sprintf("%02d :   -  %-20s  %5.1f%%\n", h, "", 0.0))
+		} else {
+			bar := ui.RenderBar(count, maxCount, 20, ui.ColorBlue)
+			content.WriteString(fmt.Sprintf("%02d : %3d  %-20s  %5.1f%%\n", h, count, bar, pct))
 		}
-		content.WriteString("\n")
 	}
 
-	card := ui.BaseCardStyle.Copy().Width(70).Render(
+	card := ui.BaseCardStyle.Copy().Width(50).Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			ui.HeaderStyle.Render("时间分布（按小时）"),
 			content.String(),
