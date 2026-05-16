@@ -18,7 +18,20 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "log-analyzer",
 		Short: "Nginx 日志分析工具",
-		Long:  "一个用于分析 Nginx access.log 的命令行工具",
+		Long: `log-analyzer 是一个用于分析 Nginx access.log 的命令行工具。
+
+支持三种主要功能：
+  - stats:    显示日志统计信息（总请求数、状态码分布、Top 10 IP/URL/User-Agent）
+  - filter:   按条件过滤日志条目
+  - gen-sample: 生成 Nginx 访问日志样本用于测试`,
+		Example: `  # 查看统计信息
+  log-analyzer stats access.log
+
+  # 过滤 4xx 错误
+  log-analyzer filter --status 4xx access.log
+
+  # 生成 200 行样本日志
+  log-analyzer gen-sample --lines 200 --output sample.log`,
 	}
 
 	rootCmd.AddCommand(newGenSampleCmd())
@@ -36,7 +49,18 @@ func newStatsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stats <log-file>",
 		Short: "显示日志统计信息",
-		Args:  cobra.ExactArgs(1),
+		Long: `显示 Nginx 访问日志的统计信息，包括：
+  - 总请求数
+  - 状态码分布（2xx/3xx/4xx/5xx）
+  - Top 10 IP 地址
+  - Top 10 请求 URL
+  - Top 10 用户代理`,
+		Example: `  # 查看 access.log 的统计信息
+  log-analyzer stats access.log
+
+  # 从标准输入读取（配合管道使用）
+  cat access.log | log-analyzer stats -`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStats(args[0])
 		},
@@ -52,18 +76,43 @@ func newFilterCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "filter <log-file>",
 		Short: "过滤日志条目",
-		Args:  cobra.ExactArgs(1),
+		Long: `按多种条件过滤 Nginx 访问日志条目，所有条件是 AND 关系。
+
+支持的过滤条件：
+  - 状态码（精确匹配或 2xx/3xx/4xx/5xx 分类）
+  - 客户端 IP 地址
+  - 请求路径（精确匹配）
+  - HTTP 方法（GET、POST、PUT、DELETE 等）
+  - 时间范围（RFC3339 格式）`,
+		Example: `  # 过滤 404 错误
+  log-analyzer filter --status 404 access.log
+
+  # 过滤所有 4xx 错误
+  log-analyzer filter --status 4xx access.log
+
+  # 过滤来自特定 IP 的请求
+  log-analyzer filter --ip 192.168.1.100 access.log
+
+  # 过滤 POST 请求到 /api/users
+  log-analyzer filter --method POST --path /api/users access.log
+
+  # 过滤时间范围内的请求（RFC3339 格式）
+  log-analyzer filter --since 2026-05-15T00:00:00+08:00 --until 2026-05-16T00:00:00+08:00 access.log
+
+  # 组合多个条件：5xx 错误 + 来自 10.0.0.1
+  log-analyzer filter --status 5xx --ip 10.0.0.1 access.log`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return filter.Run(args[0], opts)
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.Status, "status", "", "按状态码过滤（例如 404 或 4xx）")
-	cmd.Flags().StringVar(&opts.IP, "ip", "", "按客户端 IP 过滤")
-	cmd.Flags().StringVar(&opts.Path, "path", "", "按请求路径过滤（精确匹配）")
-	cmd.Flags().StringVar(&opts.Method, "method", "", "按 HTTP 方法过滤（GET、POST 等）")
-	cmd.Flags().StringVar(&opts.Since, "since", "", "按开始时间过滤（RFC3339 格式，例如 2006-01-02T15:04:05+08:00）")
-	cmd.Flags().StringVar(&opts.Until, "until", "", "按结束时间过滤（RFC3339 格式，例如 2006-01-02T15:04:05+08:00）")
+	cmd.Flags().StringVar(&opts.Status, "status", "", "按状态码过滤，例如 404 或 4xx")
+	cmd.Flags().StringVar(&opts.IP, "ip", "", "按客户端 IP 过滤，例如 192.168.1.100")
+	cmd.Flags().StringVar(&opts.Path, "path", "", "按请求路径过滤，精确匹配，例如 /api/users")
+	cmd.Flags().StringVar(&opts.Method, "method", "", "按 HTTP 方法过滤，例如 GET、POST")
+	cmd.Flags().StringVar(&opts.Since, "since", "", "按开始时间过滤，RFC3339 格式，例如 2006-01-02T15:04:05+08:00")
+	cmd.Flags().StringVar(&opts.Until, "until", "", "按结束时间过滤，RFC3339 格式，例如 2006-01-02T15:04:05+08:00")
 
 	return cmd
 }
@@ -89,13 +138,30 @@ func newGenSampleCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "gen-sample",
 		Short: "生成 Nginx 访问日志样本",
+		Long: `生成 Nginx combined 格式的访问日志样本，用于测试工具功能。
+
+样本日志包含随机的：
+  - IP 地址
+  - 时间戳（最近 24 小时内）
+  - HTTP 方法
+  - 请求路径
+  - 状态码（2xx 出现概率更高）
+  - User-Agent`,
+		Example: `  # 生成 100 行样本日志到标准输出
+  log-analyzer gen-sample
+
+  # 生成 500 行样本日志到文件
+  log-analyzer gen-sample --lines 500 --output sample.log
+
+  # 使用短选项
+  log-analyzer gen-sample -n 200 -o sample.log`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return generateSample(lines, output)
 		},
 	}
 
 	cmd.Flags().IntVarP(&lines, "lines", "n", 100, "生成的日志行数")
-	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件（默认输出到标准输出）")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "输出文件，默认输出到标准输出")
 
 	return cmd
 }
