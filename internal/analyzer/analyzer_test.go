@@ -2,9 +2,18 @@ package analyzer
 
 import (
 	"testing"
+	"time"
 
 	"log-analyzer/internal/parser"
 )
+
+func mustParseTime(t string) time.Time {
+	ts, err := time.Parse("2006-01-02T15:04:05", t)
+	if err != nil {
+		panic(err)
+	}
+	return ts
+}
 
 func TestAnalyze(t *testing.T) {
 	entries := []parser.LogEntry{
@@ -93,6 +102,31 @@ func TestErrorRates(t *testing.T) {
 	totalErrRate := float64(result.CategoryCounts["4xx"]+result.CategoryCounts["5xx"]) / float64(result.Total) * 100
 	if totalErrRate != 50.0 {
 		t.Errorf("total error rate = %.1f, want 50.0", totalErrRate)
+	}
+}
+
+func TestHourlyDistribution(t *testing.T) {
+	entries := []parser.LogEntry{
+		{IP: "1.1.1.1", Status: 200, Time: mustParseTime("2026-05-16T09:30:00")},
+		{IP: "1.1.1.1", Status: 200, Time: mustParseTime("2026-05-16T09:45:00")},
+		{IP: "2.2.2.2", Status: 404, Time: mustParseTime("2026-05-16T10:15:00")},
+		{IP: "3.3.3.3", Status: 500, Time: mustParseTime("2026-05-16T10:30:00")},
+		{IP: "1.1.1.1", Status: 302, Time: mustParseTime("2026-05-16T14:00:00")},
+		{IP: "4.4.4.4", Status: 200, Time: mustParseTime("2026-05-16T14:30:00")},
+		{IP: "5.5.5.5", Status: 200, Time: mustParseTime("2026-05-16T14:45:00")},
+		{IP: "6.6.6.6", Status: 200, Time: mustParseTime("2026-05-16T14:50:00")},
+	}
+
+	result := Analyze(entries)
+
+	if result.HourlyCounts[9] != 2 {
+		t.Errorf("Hour 9 count = %d, want 2", result.HourlyCounts[9])
+	}
+	if result.HourlyCounts[10] != 2 {
+		t.Errorf("Hour 10 count = %d, want 2", result.HourlyCounts[10])
+	}
+	if result.HourlyCounts[14] != 4 {
+		t.Errorf("Hour 14 count = %d, want 4", result.HourlyCounts[14])
 	}
 }
 

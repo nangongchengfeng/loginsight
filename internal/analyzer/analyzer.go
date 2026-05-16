@@ -31,6 +31,7 @@ type StatsResult struct {
 	PathCounts    map[string]int
 	UACounts      map[string]int
 	UniqueIPCount int // 唯一 IP 数量
+	HourlyCounts  map[int]int // 按小时的分布，key 是 0-23
 }
 
 // Analyze 分析日志并返回统计结果
@@ -41,12 +42,15 @@ func Analyze(entries []parser.LogEntry) StatsResult {
 	ipCounts := make(map[string]int)
 	pathCounts := make(map[string]int)
 	uaCounts := make(map[string]int)
+	hourlyCounts := make(map[int]int)
 
 	for _, e := range entries {
 		statusCounts[e.Status]++
 		ipCounts[e.IP]++
 		pathCounts[e.Path]++
 		uaCounts[e.UserAgent]++
+		// 按本地时区的小时聚合
+		hourlyCounts[e.Time.Hour()]++
 		switch {
 		case e.Status >= 200 && e.Status < 300:
 			categoryCounts["2xx"]++
@@ -67,6 +71,7 @@ func Analyze(entries []parser.LogEntry) StatsResult {
 		PathCounts:    pathCounts,
 		UACounts:      uaCounts,
 		UniqueIPCount: len(ipCounts), // 唯一 IP 数就是 map 的长度
+		HourlyCounts:  hourlyCounts,
 	}
 }
 
@@ -83,6 +88,10 @@ func PrintStats(result StatsResult) {
 
 	// 错误率指标
 	renderErrorRates(result)
+	fmt.Println()
+
+	// 按小时的时间分布
+	renderHourlyDistribution(result)
 	fmt.Println()
 
 	// Top 10 IP
@@ -121,6 +130,32 @@ func renderErrorRates(result StatsResult) {
 	fmt.Printf("5xx 错误率:  %s (%d 次)\n", fiveXXStr, fiveXXCount)
 	// 总错误率
 	fmt.Printf("总错误率:   %.1f%% (%d 次)\n", totalErrRate, totalErrCount)
+}
+
+// renderHourlyDistribution 渲染按小时的时间分布
+func renderHourlyDistribution(result StatsResult) {
+	fmt.Println(ui.HeaderStyle.Render("时间分布（按小时）"))
+
+	// 找到最大值用于条形图比例
+	maxCount := 0
+	for h := 0; h < 24; h++ {
+		if result.HourlyCounts[h] > maxCount {
+			maxCount = result.HourlyCounts[h]
+		}
+	}
+
+	// 渲染每小时的分布
+	for h := 0; h < 24; h++ {
+		count := result.HourlyCounts[h]
+		hourStr := fmt.Sprintf("%02d:00", h)
+		if count == 0 {
+			fmt.Printf("%s       0\n", hourStr)
+		} else {
+			pct := float64(count) / float64(result.Total) * 100
+			bar := ui.RenderBar(count, maxCount, 25)
+			fmt.Printf("%s  %4d  %5.1f%%  %s\n", hourStr, count, pct, bar)
+		}
+	}
 }
 
 // renderStatusDistribution 渲染状态码分布
