@@ -2,9 +2,11 @@ package parser
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/satyrius/gonx"
@@ -29,6 +31,20 @@ const (
 	// NginxCombinedFormat Nginx combined 日志格式
 	NginxCombinedFormat = `$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent"`
 )
+
+// nginxJSONLog 用户自定义的 Nginx JSON 日志格式
+type nginxJSONLog struct {
+	Timestamp      string `json:"timestamp"`
+	RemoteAddr     string `json:"remote_addr"`
+	XForwardedFor  string `json:"x_forwarded_for"`
+	Host           string `json:"host"`
+	RequestMethod  string `json:"request_method"`
+	RequestURI     string `json:"request_uri"`
+	Status         int    `json:"status"`
+	BodyBytesSent  int    `json:"body_bytes_sent"`
+	HTTPReferer    string `json:"http_referer"`
+	HTTPUserAgent string `json:"http_user_agent"`
+}
 
 // parser 全局 gonx 解析器
 var parser *gonx.Parser
@@ -60,14 +76,34 @@ func ParseFile(filename string) ([]LogEntry, error) {
 		defer spinner.Stop()
 	}
 
-	var entries []LogEntry
+	// 先读取第一行来检测格式
 	scanner := bufio.NewScanner(f)
+	var firstLine string
+	if scanner.Scan() {
+		firstLine = scanner.Text()
+	}
+	// 检测格式
+	isJSON := strings.HasPrefix(strings.TrimSpace(firstLine), "{")
+
+	// 重置文件指针
+	f.Seek(0, 0)
+
+	var entries []LogEntry
+	scanner = bufio.NewScanner(f)
 	lineNum := 0
 
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
-		entry, err := ParseLine(line)
+		var entry LogEntry
+		var err error
+
+		if isJSON {
+			entry, err = ParseJSONLine(line)
+		} else {
+			entry, err = ParseLine(line)
+		}
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "警告: 第 %d 行: %v\n", lineNum, err)
 			continue
@@ -141,6 +177,40 @@ func ParseLine(line string) (LogEntry, error) {
 
 	entry.Referer, _ = record.Field("http_referer")
 	entry.UserAgent, _ = record.Field("http_user_agent")
+
+	return entry, nil
+}
+
+// ParseJSONLine 解析 JSON 格式日志行
+func ParseJSONLine(line string) (LogEntry, error) {
+	var j nginxJSONLog
+	err := json.Unmarshal([]byte(line), &j)
+	if err != nil {
+		return LogEntry{}, fmt.Errorf("无法解析 JSON 日志行: %w", err)
+	}
+
+	entry := LogEntry{}
+	entry.IP = j.RemoteAddr
+
+	// 解析时间 (ISO8601 格式)
+	if j.Timestamp != "" {
+		t, err := time.Parse(time.RFC3339Nano, j.Timestamp)
+		if err != nil {
+			// 尝试解析不带时区的格式
+			t, err = time.Parse("2006-01-02T15:04:05", j.Timestamp)
+			if err != nil {
+				return LogEntry{}, fmt.Errorf("无效的时间: %w", err)
+			}
+		}
+		entry.Time = t
+	}
+
+	entry.Method = j.RequestMethod
+	entry.Path = j.RequestURI
+	entry.Status = j.Status
+	entry.BodyBytes = j.BodyBytesSent
+	entry.Referer = j.HTTPReferer
+	entry.UserAgent = j.HTTPUserAgent
 
 	return entry, nil
 }
