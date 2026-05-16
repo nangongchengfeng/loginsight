@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"log-analyzer/internal/ui"
 )
 
 // LogEntry 表示一条 Nginx 日志的结构化数据
@@ -32,6 +34,20 @@ func ParseFile(filename string) ([]LogEntry, error) {
 		return nil, err
 	}
 	defer f.Close()
+
+	// 获取文件大小决定是否显示 spinner
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	var spinner *ui.SimpleSpinner
+	// 文件大于 1MB 时显示 spinner
+	if info.Size() > 1024*1024 {
+		spinner = ui.NewSimpleSpinner("正在解析日志文件...")
+		spinner.Start()
+		defer spinner.Stop()
+	}
 
 	var entries []LogEntry
 	scanner := bufio.NewScanner(f)

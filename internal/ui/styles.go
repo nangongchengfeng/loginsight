@@ -46,3 +46,4 @@ func StatusColor(category string) lipgloss.Color {
 		return ColorGray
 	}
 }
+
