@@ -139,17 +139,17 @@ func renderTopTable(col1, col2 string, counts map[string]int, n int) {
 	header := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ui.ColorGray).
-		Render(fmt.Sprintf("%-20s %s", col1, col2))
+		Render(fmt.Sprintf("%-25s %8s", col1, col2))
 	fmt.Println(header)
-	fmt.Println(strings.Repeat("─", 30))
+	fmt.Println(strings.Repeat("─", 35))
 
 	// 数据行
 	for _, kc := range topItems {
 		key := kc.Key
-		if len(key) > 20 {
-			key = key[:17] + "..."
+		if len(key) > 25 {
+			key = key[:22] + "..."
 		}
-		fmt.Printf("%-20s %d\n", key, kc.Count)
+		fmt.Printf("%-25s %8d\n", key, kc.Count)
 	}
 }
 
@@ -161,13 +161,13 @@ func renderTopTableWithTruncate(col1, col2 string, counts map[string]int, n, max
 	header := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ui.ColorGray).
-		Render(fmt.Sprintf("%-60s %s", col1, col2))
+		Render(fmt.Sprintf("%-60s %8s", col1, col2))
 	fmt.Println(header)
-	fmt.Println(strings.Repeat("─", 70))
+	fmt.Println(strings.Repeat("─", 72))
 
 	// 数据行
 	for _, kc := range topItems {
-		fmt.Printf("%-60s %d\n", truncate(kc.Key, maxLen), kc.Count)
+		fmt.Printf("%-60s %8d\n", truncate(kc.Key, maxLen), kc.Count)
 	}
 }
 
