@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -40,14 +41,43 @@ func Run(filename string, opts Options) error {
 	}
 	defer f.Close()
 
+	// 先读取第一行来检测格式
 	scanner := bufio.NewScanner(f)
+	var firstLine string
+	if scanner.Scan() {
+		firstLine = scanner.Text()
+	}
+	// 检测格式
+	isJSON := strings.HasPrefix(strings.TrimSpace(firstLine), "{")
+
+	// 重置文件指针
+	f.Seek(0, 0)
+
+	scanner = bufio.NewScanner(f)
+	lineNum := 0
 
 	for scanner.Scan() {
+		lineNum++
 		line := scanner.Text()
-		entry, err := parser.ParseLine(line)
+
+		// 跳过空行
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		var entry parser.LogEntry
+		var err error
+
+		if isJSON {
+			entry, err = parser.ParseJSONLine(line)
+		} else {
+			entry, err = parser.ParseLine(line)
+		}
+
 		if err != nil {
 			continue
 		}
+
 		if Match(entry, opts) {
 			fmt.Println(renderColoredLine(line, entry.Status))
 		}
@@ -76,15 +106,30 @@ func renderColoredLine(line string, status int) string {
 		return line
 	}
 
-	// 替换状态码为带颜色的版本
-	return statusCodeRegex.ReplaceAllStringFunc(line, func(m string) string {
-		matches := statusCodeRegex.FindStringSubmatch(m)
-		if len(matches) == 5 {
-			statusPart := lipgloss.NewStyle().Foreground(color).Bold(true).Render(matches[4])
-			return fmt.Sprintf(`"%s %s %s" %s`, matches[1], matches[2], matches[3], statusPart)
-		}
-		return m
-	})
+	trimmedLine := strings.TrimSpace(line)
+
+	if strings.HasPrefix(trimmedLine, "{") {
+		// JSON 格式，给 status 字段上色
+		return colorizeJSONStatus(line, status, color)
+	} else {
+		// 普通 combined 格式
+		return statusCodeRegex.ReplaceAllStringFunc(line, func(m string) string {
+			matches := statusCodeRegex.FindStringSubmatch(m)
+			if len(matches) == 5 {
+				statusPart := lipgloss.NewStyle().Foreground(color).Bold(true).Render(matches[4])
+				return fmt.Sprintf(`"%s %s %s" %s`, matches[1], matches[2], matches[3], statusPart)
+			}
+			return m
+		})
+	}
+}
+
+func colorizeJSONStatus(line string, status int, color lipgloss.Color) string {
+	// 简单但有效的方式：查找 "status":数字 模式
+	statusStr := fmt.Sprintf("%d", status)
+	oldPart := `"status":` + statusStr
+	newPart := `"status":` + lipgloss.NewStyle().Foreground(color).Bold(true).Render(statusStr)
+	return strings.Replace(line, oldPart, newPart, 1)
 }
 
 // matchesStatus 检查日志是否匹配状态码过滤条件
