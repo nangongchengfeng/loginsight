@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: ready-for-human
 
 ## Parent
 
@@ -10,10 +10,10 @@ PRD: .scratch/nginx-log-analyzer/PRD.md
 
 ## Acceptance criteria
 
-- [ ] 创建 internal/analyzer 包
-- [ ] 提取统计逻辑到 analyzer 包
-- [ ] 保持功能不变
-- [ ] 代码可编译运行
+- [x] 创建 internal/analyzer 包
+- [x] 提取统计逻辑到 analyzer 包
+- [x] 保持功能不变
+- [x] 代码可编译运行
 
 ## Blocked by
 

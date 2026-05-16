@@ -6,40 +6,13 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"sort"
 	"strconv"
-	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/nangongchengfeng/go-cli/internal/analyzer"
 	"github.com/nangongchengfeng/go-cli/internal/parser"
 )
-
-// KeyCount 表示键值对统计结果
-type KeyCount struct {
-	Key   string // 键
-	Count int    //计数
-}
-
-// sortMapByValueDesc 将 map 按值降序排序
-func sortMapByValueDesc(m map[string]int) []KeyCount {
-	var list []KeyCount
-	for k, v := range m {
-		list = append(list, KeyCount{k, v})
-	}
-	sort.Slice(list, func(i, j int) bool {
-		return list[i].Count > list[j].Count
-	})
-	return list
-}
-
-// topN 返回列表的前 N 个元素
-func topN(list []KeyCount, n int) []KeyCount {
-	if len(list) < n {
-		return list
-	}
-	return list[:n]
-}
 
 // main 程序入口
 func main() {
@@ -88,7 +61,6 @@ func matchesStatus(entry parser.LogEntry, statusFilter string) bool {
 	if statusFilter == "" {
 		return true
 	}
-	// 支持 4xx 这种范围匹配
 	if len(statusFilter) == 3 && statusFilter[1] == 'x' && statusFilter[2] == 'x' {
 		switch statusFilter[0] {
 		case '2':
@@ -101,7 +73,6 @@ func matchesStatus(entry parser.LogEntry, statusFilter string) bool {
 			return entry.Status >= 500 && entry.Status < 600
 		}
 	}
-	// 精确匹配
 	s, err := strconv.Atoi(statusFilter)
 	if err != nil {
 		return false
@@ -140,7 +111,6 @@ func matchesTimeRange(entry parser.LogEntry, sinceStr, untilStr string) bool {
 	}
 	var since, until time.Time
 	var err error
-	// 检查开始时间
 	if sinceStr != "" {
 		since, err = time.Parse(time.RFC3339, sinceStr)
 		if err != nil {
@@ -150,7 +120,6 @@ func matchesTimeRange(entry parser.LogEntry, sinceStr, untilStr string) bool {
 			return false
 		}
 	}
-	// 检查结束时间
 	if untilStr != "" {
 		until, err = time.Parse(time.RFC3339, untilStr)
 		if err != nil {
@@ -202,7 +171,6 @@ func runFilter(filename string, opts FilterOptions) error {
 		if err != nil {
 			continue
 		}
-		// 所有条件都是 AND 关系
 		if !matchesStatus(entry, opts.Status) {
 			continue
 		}
@@ -224,14 +192,6 @@ func runFilter(filename string, opts FilterOptions) error {
 	return scanner.Err()
 }
 
-// truncate 截断超长字符串
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
-
 // runStats 执行统计逻辑
 func runStats(filename string) error {
 	entries, err := parser.ParseFile(filename)
@@ -239,81 +199,8 @@ func runStats(filename string) error {
 		return err
 	}
 
-	total := len(entries)
-	statusCounts := make(map[int]int)
-	categoryCounts := make(map[string]int)
-	ipCounts := make(map[string]int)
-	pathCounts := make(map[string]int)
-	uaCounts := make(map[string]int)
-
-	// 遍历所有日志进行统计
-	for _, e := range entries {
-		statusCounts[e.Status]++
-		ipCounts[e.IP]++
-		pathCounts[e.Path]++
-		uaCounts[e.UserAgent]++
-		switch {
-		case e.Status >= 200 && e.Status < 300:
-			categoryCounts["2xx"]++
-		case e.Status >= 300 && e.Status < 400:
-			categoryCounts["3xx"]++
-		case e.Status >= 400 && e.Status < 500:
-			categoryCounts["4xx"]++
-		case e.Status >= 500 && e.Status < 600:
-			categoryCounts["5xx"]++
-		}
-	}
-
-	// 输出基础指标
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "指标\t值")
-	fmt.Fprintf(w, "总请求数\t%d\n", total)
-	w.Flush()
-
-	// 输出状态码分布
-	fmt.Println()
-	fmt.Println("状态码分布：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "分类\t数量\t占比")
-	for _, cat := range []string{"2xx", "3xx", "4xx", "5xx"} {
-		count := categoryCounts[cat]
-		pct := float64(count) / float64(total) * 100
-		fmt.Fprintf(w, "%s\t%d\t%.1f%%\n", cat, count, pct)
-	}
-	w.Flush()
-
-	// 输出 Top 10 IP
-	fmt.Println()
-	fmt.Println("Top 10 IP：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "IP\t请求数")
-	topIPs := topN(sortMapByValueDesc(ipCounts), 10)
-	for _, kc := range topIPs {
-		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
-	}
-	w.Flush()
-
-	// 输出 Top 10 URL
-	fmt.Println()
-	fmt.Println("Top 10 URL：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\t请求数")
-	topPaths := topN(sortMapByValueDesc(pathCounts), 10)
-	for _, kc := range topPaths {
-		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
-	}
-	w.Flush()
-
-	// 输出 Top 10 User Agent
-	fmt.Println()
-	fmt.Println("Top 10 用户代理：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "用户代理\t请求数")
-	topUAs := topN(sortMapByValueDesc(uaCounts), 10)
-	for _, kc := range topUAs {
-		fmt.Fprintf(w, "%s\t%d\n", truncate(kc.Key, 60), kc.Count)
-	}
-	w.Flush()
+	result := analyzer.Analyze(entries)
+	analyzer.PrintStats(result)
 
 	return nil
 }
