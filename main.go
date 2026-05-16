@@ -6,32 +6,19 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"regexp"
 	"sort"
 	"strconv"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/nangongchengfeng/go-cli/internal/parser"
 )
-
-// LogEntry 表示一条 Nginx 日志的结构化数据
-type LogEntry struct {
-	IP         string        // 客户端 IP
-	Time       time.Time     // 请求时间
-	Method     string        // HTTP 方法
-	Path       string        // 请求路径
-	Protocol   string        // HTTP 协议版本
-	Status     int           // 状态码
-	BodyBytes  int           // 响应体字节数
-	Referer    string        // 来源页
-	UserAgent  string        // 用户代理
-}
 
 // KeyCount 表示键值对统计结果
 type KeyCount struct {
 	Key   string // 键
-	Count int    // 计数
+	Count int    //计数
 }
 
 // sortMapByValueDesc 将 map 按值降序排序
@@ -53,9 +40,6 @@ func topN(list []KeyCount, n int) []KeyCount {
 	}
 	return list[:n]
 }
-
-// logRegex 用于解析 Nginx combined 格式日志的正则表达式
-var logRegex = regexp.MustCompile(`^(\S+) - - \[([^\]]+)\] "(\S+) (\S+) (\S+)" (\d+) (\d+) "([^"]+)" "([^"]+)"$`)
 
 // main 程序入口
 func main() {
@@ -100,7 +84,7 @@ type FilterOptions struct {
 }
 
 // matchesStatus 检查日志是否匹配状态码过滤条件
-func matchesStatus(entry LogEntry, statusFilter string) bool {
+func matchesStatus(entry parser.LogEntry, statusFilter string) bool {
 	if statusFilter == "" {
 		return true
 	}
@@ -126,7 +110,7 @@ func matchesStatus(entry LogEntry, statusFilter string) bool {
 }
 
 // matchesIP 检查日志是否匹配 IP 过滤条件
-func matchesIP(entry LogEntry, ipFilter string) bool {
+func matchesIP(entry parser.LogEntry, ipFilter string) bool {
 	if ipFilter == "" {
 		return true
 	}
@@ -134,7 +118,7 @@ func matchesIP(entry LogEntry, ipFilter string) bool {
 }
 
 // matchesPath 检查日志是否匹配路径过滤条件
-func matchesPath(entry LogEntry, pathFilter string) bool {
+func matchesPath(entry parser.LogEntry, pathFilter string) bool {
 	if pathFilter == "" {
 		return true
 	}
@@ -142,7 +126,7 @@ func matchesPath(entry LogEntry, pathFilter string) bool {
 }
 
 // matchesMethod 检查日志是否匹配方法过滤条件
-func matchesMethod(entry LogEntry, methodFilter string) bool {
+func matchesMethod(entry parser.LogEntry, methodFilter string) bool {
 	if methodFilter == "" {
 		return true
 	}
@@ -150,7 +134,7 @@ func matchesMethod(entry LogEntry, methodFilter string) bool {
 }
 
 // matchesTimeRange 检查日志是否匹配时间范围过滤条件
-func matchesTimeRange(entry LogEntry, sinceStr, untilStr string) bool {
+func matchesTimeRange(entry parser.LogEntry, sinceStr, untilStr string) bool {
 	if sinceStr == "" && untilStr == "" {
 		return true
 	}
@@ -214,7 +198,7 @@ func runFilter(filename string, opts FilterOptions) error {
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		entry, err := parseLogLine(line)
+		entry, err := parser.ParseLine(line)
 		if err != nil {
 			continue
 		}
@@ -250,7 +234,7 @@ func truncate(s string, maxLen int) string {
 
 // runStats 执行统计逻辑
 func runStats(filename string) error {
-	entries, err := parseLogFile(filename)
+	entries, err := parser.ParseFile(filename)
 	if err != nil {
 		return err
 	}
@@ -334,71 +318,6 @@ func runStats(filename string) error {
 	return nil
 }
 
-// parseLogFile 读取并解析整个日志文件
-func parseLogFile(filename string) ([]LogEntry, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var entries []LogEntry
-	scanner := bufio.NewScanner(f)
-	lineNum := 0
-
-	for scanner.Scan() {
-		lineNum++
-		line := scanner.Text()
-		entry, err := parseLogLine(line)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "警告: 第 %d 行: %v\n", lineNum, err)
-			continue
-		}
-		entries = append(entries, entry)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return entries, nil
-}
-
-// parseLogLine 解析单条日志行
-func parseLogLine(line string) (LogEntry, error) {
-	matches := logRegex.FindStringSubmatch(line)
-	if len(matches) != 10 {
-		return LogEntry{}, fmt.Errorf("无法解析日志行")
-	}
-
-	status, err := strconv.Atoi(matches[6])
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的状态码: %v", err)
-	}
-
-	bodyBytes, err := strconv.Atoi(matches[7])
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的字节数: %v", err)
-	}
-
-	t, err := time.Parse("02/Jan/2006:15:04:05 -0700", matches[2])
-	if err != nil {
-		return LogEntry{}, fmt.Errorf("无效的时间: %v", err)
-	}
-
-	return LogEntry{
-		IP:         matches[1],
-		Time:       t,
-		Method:     matches[3],
-		Path:       matches[4],
-		Protocol:   matches[5],
-		Status:     status,
-		BodyBytes:  bodyBytes,
-		Referer:    matches[8],
-		UserAgent:  matches[9],
-	}, nil
-}
-
 // newGenSampleCmd 创建 gen-sample 子命令
 func newGenSampleCmd() *cobra.Command {
 	var lines int
@@ -443,7 +362,7 @@ func generateSample(lines int, output string) error {
 // generateLogLine 生成单条样本日志行
 func generateLogLine(r *rand.Rand) string {
 	ip := generateIP(r)
-	ts := time.Now().Add(-time.Duration(r.Intn(86400)) * time.Second) // 随机过去 24 小时内的时间
+	ts := time.Now().Add(-time.Duration(r.Intn(86400)) * time.Second)
 	method := pickMethod(r)
 	path := pickPath(r)
 	proto := "HTTP/1.1"
