@@ -18,4 +18,4 @@
 
 None - can start immediately
 
-Status: ready-for-agent
+Status: completed

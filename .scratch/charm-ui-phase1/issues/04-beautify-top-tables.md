@@ -21,4 +21,4 @@
 
 - .scratch/charm-ui-phase1/issues/03-beautify-status-distribution.md
 
-Status: ready-for-agent
+Status: completed

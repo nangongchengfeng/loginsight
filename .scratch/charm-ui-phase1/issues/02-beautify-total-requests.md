@@ -19,4 +19,4 @@
 
 - .scratch/charm-ui-phase1/issues/01-add-charm-deps.md
 
-Status: ready-for-agent
+Status: completed

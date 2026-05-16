@@ -20,4 +20,4 @@
 
 - .scratch/charm-ui-phase1/issues/02-beautify-total-requests.md
 
-Status: ready-for-agent
+Status: completed
