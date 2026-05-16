@@ -41,6 +41,11 @@ func TestAnalyze(t *testing.T) {
 	if result.PathCounts["/api/users"] != 2 {
 		t.Errorf("Path /api/users count = %d, want 2", result.PathCounts["/api/users"])
 	}
+
+	// 测试唯一 IP 数
+	if result.UniqueIPCount != 3 {
+		t.Errorf("UniqueIPCount = %d, want 3", result.UniqueIPCount)
+	}
 }
 
 func TestSortMapByValueDesc(t *testing.T) {

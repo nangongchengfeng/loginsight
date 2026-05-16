@@ -24,6 +24,7 @@ type StatsResult struct {
 	IPCounts      map[string]int
 	PathCounts    map[string]int
 	UACounts      map[string]int
+	UniqueIPCount int // 唯一 IP 数量
 }
 
 // Analyze 分析日志并返回统计结果
@@ -59,6 +60,7 @@ func Analyze(entries []parser.LogEntry) StatsResult {
 		IPCounts:      ipCounts,
 		PathCounts:    pathCounts,
 		UACounts:      uaCounts,
+		UniqueIPCount: len(ipCounts), // 唯一 IP 数就是 map 的长度
 	}
 }
 
@@ -75,6 +77,8 @@ func PrintStats(result StatsResult) {
 
 	// Top 10 IP
 	fmt.Println(ui.HeaderStyle.Render("Top 10 IP"))
+	// 显示唯一 IP 总数
+	fmt.Printf("唯一 IP 数: %d\n\n", result.UniqueIPCount)
 	renderTopTable("IP", "请求数", result.IPCounts, 10)
 	fmt.Println()
 
