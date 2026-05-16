@@ -215,12 +215,20 @@ func generateLogLine(r *rand.Rand) string {
 
 // generateIP 生成随机 IP 地址
 func generateIP(r *rand.Rand) string {
-	return fmt.Sprintf("%d.%d.%d.%d",
-		r.Intn(256),
-		r.Intn(256),
-		r.Intn(256),
-		r.Intn(256),
-	)
+	// 从固定 IP 池中选择，产生重复
+	ips := []string{
+		"192.168.1.1",
+		"192.168.1.2",
+		"10.0.0.1",
+		"10.0.0.2",
+		"172.16.0.1",
+		"172.16.0.2",
+		"8.8.8.8",
+		"1.1.1.1",
+		"203.0.113.1",
+		"198.51.100.1",
+	}
+	return ips[r.Intn(len(ips))]
 }
 
 // pickMethod 随机选择 HTTP 方法
