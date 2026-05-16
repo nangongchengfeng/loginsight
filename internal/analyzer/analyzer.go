@@ -6,7 +6,7 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"github.com/nangongchengfeng/go-cli/internal/parser"
+	"log-analyzer/internal/parser"
 )
 
 // KeyCount 表示键值对统计结果

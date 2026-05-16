@@ -3,7 +3,7 @@ package filter
 import (
 	"testing"
 
-	"github.com/nangongchengfeng/go-cli/internal/parser"
+	"log-analyzer/internal/parser"
 )
 
 func TestMatch(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nangongchengfeng/go-cli/internal/parser"
+	"log-analyzer/internal/parser"
 )
 
 // Options 存储过滤选项

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/nangongchengfeng/go-cli/internal/analyzer"
-	"github.com/nangongchengfeng/go-cli/internal/filter"
-	"github.com/nangongchengfeng/go-cli/internal/parser"
+	"log-analyzer/internal/analyzer"
+	"log-analyzer/internal/filter"
+	"log-analyzer/internal/parser"
 )
 
 // main 程序入口

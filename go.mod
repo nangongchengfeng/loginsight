@@ -1,4 +1,4 @@
-module github.com/nangongchengfeng/go-cli
+module log-analyzer
 
 go 1.25.8
 
