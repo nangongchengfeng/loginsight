@@ -2,11 +2,12 @@ package analyzer
 
 import (
 	"fmt"
-	"os"
 	"sort"
-	"text/tabwriter"
+	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"log-analyzer/internal/parser"
+	"log-analyzer/internal/ui"
 )
 
 // KeyCount 表示键值对统计结果
@@ -63,51 +64,111 @@ func Analyze(entries []parser.LogEntry) StatsResult {
 
 // PrintStats 打印统计结果
 func PrintStats(result StatsResult) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "指标\t值")
-	fmt.Fprintf(w, "总请求数\t%d\n", result.Total)
-	w.Flush()
-
+	// 总请求数卡片
+	fmt.Println(ui.RenderTotalRequests(result.Total))
 	fmt.Println()
-	fmt.Println("状态码分布：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "分类\t数量\t占比")
+
+	// 状态码分布表格
+	fmt.Println(ui.HeaderStyle.Render("状态码分布"))
+	renderStatusDistribution(result)
+	fmt.Println()
+
+	// Top 10 IP
+	fmt.Println(ui.HeaderStyle.Render("Top 10 IP"))
+	renderTopTable("IP", "请求数", result.IPCounts, 10)
+	fmt.Println()
+
+	// Top 10 URL
+	fmt.Println(ui.HeaderStyle.Render("Top 10 URL"))
+	renderTopTable("URL", "请求数", result.PathCounts, 10)
+	fmt.Println()
+
+	// Top 10 User-Agent
+	fmt.Println(ui.HeaderStyle.Render("Top 10 用户代理"))
+	renderTopTableWithTruncate("用户代理", "请求数", result.UACounts, 10, 60)
+}
+
+// renderStatusDistribution 渲染状态码分布
+func renderStatusDistribution(result StatsResult) {
+	// 找到最大值用于条形图比例
+	maxCount := 0
+	for _, cat := range []string{"2xx", "3xx", "4xx", "5xx"} {
+		if result.CategoryCounts[cat] > maxCount {
+			maxCount = result.CategoryCounts[cat]
+		}
+	}
+
+	// 渲染表格行
+	var rows []string
 	for _, cat := range []string{"2xx", "3xx", "4xx", "5xx"} {
 		count := result.CategoryCounts[cat]
 		pct := float64(count) / float64(result.Total) * 100
-		fmt.Fprintf(w, "%s\t%d\t%.1f%%\n", cat, count, pct)
-	}
-	w.Flush()
+		color := ui.StatusColor(cat)
 
-	fmt.Println()
-	fmt.Println("Top 10 IP：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "IP\t请求数")
-	topIPs := TopN(SortMapByValueDesc(result.IPCounts), 10)
-	for _, kc := range topIPs {
-		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
-	}
-	w.Flush()
+		cellCat := lipgloss.NewStyle().
+			Foreground(color).
+			Bold(true).
+			Width(5).
+			Render(cat)
 
-	fmt.Println()
-	fmt.Println("Top 10 URL：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\t请求数")
-	topPaths := TopN(SortMapByValueDesc(result.PathCounts), 10)
-	for _, kc := range topPaths {
-		fmt.Fprintf(w, "%s\t%d\n", kc.Key, kc.Count)
-	}
-	w.Flush()
+		cellCount := lipgloss.NewStyle().
+			Width(8).
+			Align(lipgloss.Right).
+			Render(fmt.Sprintf("%d", count))
 
-	fmt.Println()
-	fmt.Println("Top 10 用户代理：")
-	w = tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "用户代理\t请求数")
-	topUAs := TopN(SortMapByValueDesc(result.UACounts), 10)
-	for _, kc := range topUAs {
-		fmt.Fprintf(w, "%s\t%d\n", truncate(kc.Key, 60), kc.Count)
+		cellPct := lipgloss.NewStyle().
+			Width(8).
+			Align(lipgloss.Right).
+			Render(fmt.Sprintf("%.1f%%", pct))
+
+		cellBar := lipgloss.NewStyle().
+			Foreground(color).
+			Render(ui.RenderBar(count, maxCount, 20))
+
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Left, cellCat, cellCount, cellPct, "  ", cellBar))
 	}
-	w.Flush()
+
+	fmt.Println(strings.Join(rows, "\n"))
+}
+
+// renderTopTable 渲染 Top N 表格
+func renderTopTable(col1, col2 string, counts map[string]int, n int) {
+	topItems := TopN(SortMapByValueDesc(counts), n)
+
+	// 表头
+	header := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ui.ColorGray).
+		Render(fmt.Sprintf("%-20s %s", col1, col2))
+	fmt.Println(header)
+	fmt.Println(strings.Repeat("─", 30))
+
+	// 数据行
+	for _, kc := range topItems {
+		key := kc.Key
+		if len(key) > 20 {
+			key = key[:17] + "..."
+		}
+		fmt.Printf("%-20s %d\n", key, kc.Count)
+	}
+}
+
+// renderTopTableWithTruncate 渲染带截断的 Top N 表格
+func renderTopTableWithTruncate(col1, col2 string, counts map[string]int, n, maxLen int) {
+	topItems := TopN(SortMapByValueDesc(counts), n)
+
+	// 表头
+	header := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ui.ColorGray).
+		Render(fmt.Sprintf("%-60s %s", col1, col2))
+	fmt.Println(header)
+	fmt.Println(strings.Repeat("─", 70))
+
+	// 数据行
+	for _, kc := range topItems {
+		fmt.Printf("%-60s %d\n", truncate(kc.Key, maxLen), kc.Count)
+	}
 }
 
 // SortMapByValueDesc 将 map 按值降序排序
