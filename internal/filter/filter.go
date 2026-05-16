@@ -4,10 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"log-analyzer/internal/parser"
+	"log-analyzer/internal/ui"
 )
 
 // Options 存储过滤选项
@@ -46,11 +49,42 @@ func Run(filename string, opts Options) error {
 			continue
 		}
 		if Match(entry, opts) {
-			fmt.Println(line)
+			fmt.Println(renderColoredLine(line, entry.Status))
 		}
 	}
 
 	return scanner.Err()
+}
+
+// statusCodeRegex 匹配日志中的状态码
+var statusCodeRegex = regexp.MustCompile(`"(\S+)\s+(\S+)\s+(\S+)"\s+(\d+)`)
+
+// renderColoredLine 渲染带颜色的日志行
+func renderColoredLine(line string, status int) string {
+	// 确定状态码颜色
+	var color lipgloss.Color
+	switch {
+	case status >= 200 && status < 300:
+		color = ui.ColorGreen
+	case status >= 300 && status < 400:
+		color = ui.ColorYellow
+	case status >= 400 && status < 500:
+		color = ui.ColorOrange
+	case status >= 500 && status < 600:
+		color = ui.ColorRed
+	default:
+		return line
+	}
+
+	// 替换状态码为带颜色的版本
+	return statusCodeRegex.ReplaceAllStringFunc(line, func(m string) string {
+		matches := statusCodeRegex.FindStringSubmatch(m)
+		if len(matches) == 5 {
+			statusPart := lipgloss.NewStyle().Foreground(color).Bold(true).Render(matches[4])
+			return fmt.Sprintf(`"%s %s %s" %s`, matches[1], matches[2], matches[3], statusPart)
+		}
+		return m
+	})
 }
 
 // matchesStatus 检查日志是否匹配状态码过滤条件
