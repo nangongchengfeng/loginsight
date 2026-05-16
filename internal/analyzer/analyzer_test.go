@@ -48,6 +48,21 @@ func TestAnalyze(t *testing.T) {
 	}
 }
 
+func TestSortStatusMapByValueDesc(t *testing.T) {
+	m := map[int]int{200: 5, 404: 3, 500: 1, 302: 2}
+	result := SortStatusMapByValueDesc(m)
+
+	if len(result) != 4 {
+		t.Fatalf("len = %d, want 4", len(result))
+	}
+	if result[0].Key != 200 || result[0].Count != 5 {
+		t.Errorf("result[0] = %v, want {200, 5}", result[0])
+	}
+	if result[1].Key != 404 || result[1].Count != 3 {
+		t.Errorf("result[1] = %v, want {404, 3}", result[1])
+	}
+}
+
 func TestSortMapByValueDesc(t *testing.T) {
 	m := map[string]int{"a": 3, "b": 1, "c": 2}
 	result := SortMapByValueDesc(m)

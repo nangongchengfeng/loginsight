@@ -10,10 +10,16 @@ import (
 	"log-analyzer/internal/ui"
 )
 
-// KeyCount 表示键值对统计结果
+// KeyCount 表示键值对统计结果（string 键）
 type KeyCount struct {
 	Key   string // 键
 	Count int    //计数
+}
+
+// StatusKeyCount 表示状态码统计结果（int 键）
+type StatusKeyCount struct {
+	Key   int // 状态码
+	Count int // 计数
 }
 
 // StatsResult 包含所有统计结果
@@ -133,6 +139,54 @@ func renderStatusDistribution(result StatsResult) {
 	}
 
 	fmt.Println(strings.Join(rows, "\n"))
+
+	// 渲染 Top 10 具体状态码
+	renderTopStatusCodes(result)
+}
+
+// renderTopStatusCodes 渲染 Top 10 具体状态码
+func renderTopStatusCodes(result StatsResult) {
+	fmt.Println()
+	fmt.Println(ui.HeaderStyle.Render("Top 10 具体状态码"))
+
+	topStatus := SortStatusMapByValueDesc(result.StatusCounts)
+	if len(topStatus) > 10 {
+		topStatus = topStatus[:10]
+	}
+
+	// 表头
+	header := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(ui.ColorGray).
+		Render(fmt.Sprintf("%-10s %8s %10s", "状态码", "请求数", "占比"))
+	fmt.Println(header)
+	fmt.Println(strings.Repeat("─", 32))
+
+	// 数据行
+	for _, s := range topStatus {
+		pct := float64(s.Count) / float64(result.Total) * 100
+		// 根据状态码确定颜色
+		var color lipgloss.Color
+		switch {
+		case s.Key >= 200 && s.Key < 300:
+			color = ui.StatusColor("2xx")
+		case s.Key >= 300 && s.Key < 400:
+			color = ui.StatusColor("3xx")
+		case s.Key >= 400 && s.Key < 500:
+			color = ui.StatusColor("4xx")
+		case s.Key >= 500 && s.Key < 600:
+			color = ui.StatusColor("5xx")
+		default:
+			color = ui.ColorGray
+		}
+
+		statusStr := lipgloss.NewStyle().
+			Foreground(color).
+			Bold(true).
+			Render(fmt.Sprintf("%d", s.Key))
+
+		fmt.Printf("%-22s %8d %9.1f%%\n", statusStr, s.Count, pct)
+	}
 }
 
 // renderTopTable 渲染 Top N 表格
@@ -201,4 +255,16 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// SortStatusMapByValueDesc 将状态码 map 按值降序排序
+func SortStatusMapByValueDesc(m map[int]int) []StatusKeyCount {
+	var list []StatusKeyCount
+	for k, v := range m {
+		list = append(list, StatusKeyCount{k, v})
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Count > list[j].Count
+	})
+	return list
 }
