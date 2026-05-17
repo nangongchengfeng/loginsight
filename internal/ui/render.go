@@ -134,7 +134,7 @@ func renderStatusCard(output *strings.Builder, result stats.StatsResult) {
 		catStr := lipgloss.NewStyle().Foreground(color).Bold(true).Width(6).Render(cat)
 		countStr := lipgloss.NewStyle().Width(6).Align(lipgloss.Right).Render(fmt.Sprintf("%d", count))
 		pctStr := lipgloss.NewStyle().Width(7).Align(lipgloss.Right).Render(fmt.Sprintf("%.1f%%", pct))
-		bar := RenderBar(count, maxCatCount, 18, color)
+		bar := RenderBar(count, maxCatCount, 14, color) // 条形图从18缩到14
 
 		content.WriteString(fmt.Sprintf("%s %s %s  %s\n", catStr, countStr, pctStr, bar))
 	}
@@ -171,7 +171,7 @@ func renderStatusCard(output *strings.Builder, result stats.StatsResult) {
 		content.WriteString(fmt.Sprintf("  %-12s %s %s\n", statusStr, countStr, pctStr))
 	}
 
-	card := BaseCardStyle.Copy().Width(52).Render(
+	card := BaseCardStyle.Copy().Width(44).Render( // 宽度从52缩到44
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("状态码分布"),
 			content.String(),
@@ -196,14 +196,14 @@ func renderHourlyCard(output *strings.Builder, result stats.StatsResult) {
 		pct := float64(count) / float64(result.Total) * 100
 
 		if count == 0 {
-			content.WriteString(fmt.Sprintf("%02d :   -  %-20s  %5.1f%%\n", h, "", 0.0))
+			content.WriteString(fmt.Sprintf("%02d :   -  %-16s  %5.1f%%\n", h, "", 0.0)) // 空格从20缩到16
 		} else {
-			bar := RenderBar(count, maxCount, 20, ColorBlue)
-			content.WriteString(fmt.Sprintf("%02d : %3d  %-20s  %5.1f%%\n", h, count, bar, pct))
+			bar := RenderBar(count, maxCount, 16, ColorBlue) // 条形图从20缩到16
+			content.WriteString(fmt.Sprintf("%02d : %3d  %-16s  %5.1f%%\n", h, count, bar, pct)) // 空格从20缩到16
 		}
 	}
 
-	card := BaseCardStyle.Copy().Width(50).Render(
+	card := BaseCardStyle.Copy().Width(44).Render( // 宽度从50缩到44
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("时间分布（按小时）"),
 			content.String(),
@@ -230,7 +230,7 @@ func renderIPCard(output *strings.Builder, result stats.StatsResult) {
 		content.WriteString(fmt.Sprintf("%-18s %8d\n", key, kc.Count))
 	}
 
-	card := BaseCardStyle.Copy().Width(36).Render(
+	card := BaseCardStyle.Copy().Width(40).Render( // 宽度从36加到40
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("Top 10 IP"),
 			content.String(),
@@ -245,18 +245,18 @@ func renderURLCard(output *strings.Builder, result stats.StatsResult) {
 
 	topItems := stats.TopN(stats.SortMapByValueDesc(result.PathCounts), 10)
 
-	content.WriteString(fmt.Sprintf("URL                                 请求数\n"))
-	content.WriteString(strings.Repeat("─", 40) + "\n")
+	content.WriteString(fmt.Sprintf("URL                         请求数\n")) // 缩短标题
+	content.WriteString(strings.Repeat("─", 36) + "\n") // 分隔线从40缩到36
 
 	for _, kc := range topItems {
 		key := kc.Key
-		if len(key) > 30 {
-			key = key[:27] + "..."
+		if len(key) > 26 { // 从30缩到26
+			key = key[:23] + "..."
 		}
-		content.WriteString(fmt.Sprintf("%-30s %8d\n", key, kc.Count))
+		content.WriteString(fmt.Sprintf("%-26s %8d\n", key, kc.Count)) // 从30缩到26
 	}
 
-	card := BaseCardStyle.Copy().Width(48).Render(
+	card := BaseCardStyle.Copy().Width(44).Render( // 宽度从48缩到44
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("Top 10 URL"),
 			content.String(),
@@ -271,14 +271,14 @@ func renderUACard(output *strings.Builder, result stats.StatsResult) {
 
 	topItems := stats.TopN(stats.SortMapByValueDesc(result.UACounts), 10)
 
-	content.WriteString(fmt.Sprintf("用户代理                        请求数\n"))
-	content.WriteString(strings.Repeat("─", 40) + "\n")
+	content.WriteString(fmt.Sprintf("用户代理                    请求数\n")) // 缩短标题
+	content.WriteString(strings.Repeat("─", 36) + "\n") // 分隔线从40缩到36
 
 	for _, kc := range topItems {
-		content.WriteString(fmt.Sprintf("%-30s %8d\n", truncate(kc.Key, 30), kc.Count))
+		content.WriteString(fmt.Sprintf("%-26s %8d\n", truncate(kc.Key, 26), kc.Count)) // 从30缩到26
 	}
 
-	card := BaseCardStyle.Copy().Width(48).Render(
+	card := BaseCardStyle.Copy().Width(44).Render( // 宽度从48缩到44
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("Top 10 用户代理"),
 			content.String(),
