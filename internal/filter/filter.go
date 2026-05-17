@@ -16,12 +16,13 @@ import (
 
 // Options 存储过滤选项
 type Options struct {
-	Status string // 状态码过滤
-	IP     string // IP 过滤
-	Path   string // 路径过滤
-	Method string // 方法过滤
-	Since  string // 开始时间
-	Until  string // 结束时间
+	Status     string // 状态码过滤
+	IP         string // IP 过滤
+	Path       string // 路径过滤（精确匹配）
+	PathPrefix string // 路径过滤（前缀匹配）
+	Method     string // 方法过滤
+	Since      string // 开始时间
+	Until      string // 结束时间
 }
 
 // Match 检查日志条目是否匹配所有过滤条件
@@ -29,6 +30,7 @@ func Match(entry parser.LogEntry, opts Options) bool {
 	return matchesStatus(entry, opts.Status) &&
 		matchesIP(entry, opts.IP) &&
 		matchesPath(entry, opts.Path) &&
+		matchesPathPrefix(entry, opts.PathPrefix) &&
 		matchesMethod(entry, opts.Method) &&
 		matchesTimeRange(entry, opts.Since, opts.Until)
 }
@@ -170,6 +172,14 @@ func matchesPath(entry parser.LogEntry, pathFilter string) bool {
 		return true
 	}
 	return entry.Path == pathFilter
+}
+
+// matchesPathPrefix 检查日志是否匹配路径前缀过滤条件
+func matchesPathPrefix(entry parser.LogEntry, pathPrefixFilter string) bool {
+	if pathPrefixFilter == "" {
+		return true
+	}
+	return strings.HasPrefix(entry.Path, pathPrefixFilter)
 }
 
 // matchesMethod 检查日志是否匹配方法过滤条件

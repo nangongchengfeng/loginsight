@@ -11,6 +11,7 @@ import (
 	"log-analyzer/internal/analyzer"
 	"log-analyzer/internal/filter"
 	"log-analyzer/internal/parser"
+	"log-analyzer/internal/ui"
 )
 
 // main 程序入口
@@ -82,6 +83,7 @@ func newFilterCmd() *cobra.Command {
   - 状态码（精确匹配或 2xx/3xx/4xx/5xx 分类）
   - 客户端 IP 地址
   - 请求路径（精确匹配）
+  - 请求路径前缀（前缀匹配）
   - HTTP 方法（GET、POST、PUT、DELETE 等）
   - 时间范围（RFC3339 格式）`,
 		Example: `  # 过滤 404 错误
@@ -95,6 +97,9 @@ func newFilterCmd() *cobra.Command {
 
   # 过滤 POST 请求到 /api/users
   log-analyzer filter --method POST --path /api/users access.log
+
+  # 过滤所有 /api 开头的路径
+  log-analyzer filter --path-prefix /api access.log
 
   # 过滤时间范围内的请求（RFC3339 格式）
   log-analyzer filter --since 2026-05-15T00:00:00+08:00 --until 2026-05-16T00:00:00+08:00 access.log
@@ -110,6 +115,7 @@ func newFilterCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Status, "status", "", "按状态码过滤，例如 404 或 4xx")
 	cmd.Flags().StringVar(&opts.IP, "ip", "", "按客户端 IP 过滤，例如 192.168.1.100")
 	cmd.Flags().StringVar(&opts.Path, "path", "", "按请求路径过滤，精确匹配，例如 /api/users")
+	cmd.Flags().StringVar(&opts.PathPrefix, "path-prefix", "", "按请求路径前缀过滤，例如 /api/users")
 	cmd.Flags().StringVar(&opts.Method, "method", "", "按 HTTP 方法过滤，例如 GET、POST")
 	cmd.Flags().StringVar(&opts.Since, "since", "", "按开始时间过滤，RFC3339 格式，例如 2006-01-02T15:04:05+08:00")
 	cmd.Flags().StringVar(&opts.Until, "until", "", "按结束时间过滤，RFC3339 格式，例如 2006-01-02T15:04:05+08:00")
@@ -125,7 +131,7 @@ func runStats(filename string) error {
 	}
 
 	result := analyzer.Analyze(entries)
-	analyzer.PrintStats(result)
+	fmt.Print(ui.RenderStats(result))
 
 	return nil
 }

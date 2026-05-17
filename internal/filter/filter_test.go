@@ -60,6 +60,21 @@ func TestMatch(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "路径前缀匹配_匹配",
+			opts: Options{PathPrefix: "/api"},
+			want: true,
+		},
+		{
+			name: "路径前缀匹配_不匹配",
+			opts: Options{PathPrefix: "/admin"},
+			want: false,
+		},
+		{
+			name: "路径和路径前缀同时使用_都匹配",
+			opts: Options{Path: "/api/users", PathPrefix: "/api"},
+			want: true,
+		},
+		{
 			name: "方法匹配",
 			opts: Options{Method: "GET"},
 			want: true,
@@ -104,6 +119,33 @@ func TestMatchStatusCodeCategories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			entry := parser.LogEntry{Status: tt.status}
 			opts := Options{Status: tt.filter}
+			if got := Match(entry, opts); got != tt.want {
+				t.Errorf("Match() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchPathPrefix(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		filter string
+		want   bool
+	}{
+		{"/api/users matches /api", "/api/users", "/api", true},
+		{"/api/users/123 matches /api", "/api/users/123", "/api", true},
+		{"/api matches /api", "/api", "/api", true},
+		{"/admin does not match /api", "/admin", "/api", false},
+		{"/ does not match /api", "/", "/api", false},
+		{"/api2 does not match /api", "/api2", "/api", true},
+		{"empty filter matches any", "/api/users", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := parser.LogEntry{Path: tt.path}
+			opts := Options{PathPrefix: tt.filter}
 			if got := Match(entry, opts); got != tt.want {
 				t.Errorf("Match() = %v, want %v", got, tt.want)
 			}
