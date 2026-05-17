@@ -232,6 +232,9 @@ func renderHourlyCard(output *strings.Builder, result stats.StatsResult) {
 		}
 	}
 
+	// 添加空行让卡片高度和左侧两卡片对齐
+	content.WriteString("\n\n\n\n")
+
 	card := BaseCardStyle.Copy().Width(44).Render( // 宽度从50缩到44
 		lipgloss.JoinVertical(lipgloss.Left,
 			HeaderStyle.Render("时间分布（按小时）"),
