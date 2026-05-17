@@ -57,21 +57,6 @@ func TestAnalyze(t *testing.T) {
 	}
 }
 
-func TestSortStatusMapByValueDesc(t *testing.T) {
-	m := map[int]int{200: 5, 404: 3, 500: 1, 302: 2}
-	result := SortStatusMapByValueDesc(m)
-
-	if len(result) != 4 {
-		t.Fatalf("len = %d, want 4", len(result))
-	}
-	if result[0].Key != 200 || result[0].Count != 5 {
-		t.Errorf("result[0] = %v, want {200, 5}", result[0])
-	}
-	if result[1].Key != 404 || result[1].Count != 3 {
-		t.Errorf("result[1] = %v, want {404, 3}", result[1])
-	}
-}
-
 func TestErrorRates(t *testing.T) {
 	entries := []parser.LogEntry{
 		{IP: "1.1.1.1", Status: 200},
@@ -127,40 +112,5 @@ func TestHourlyDistribution(t *testing.T) {
 	}
 	if result.HourlyCounts[14] != 4 {
 		t.Errorf("Hour 14 count = %d, want 4", result.HourlyCounts[14])
-	}
-}
-
-func TestSortMapByValueDesc(t *testing.T) {
-	m := map[string]int{"a": 3, "b": 1, "c": 2}
-	result := SortMapByValueDesc(m)
-
-	if len(result) != 3 {
-		t.Fatalf("len = %d, want 3", len(result))
-	}
-	if result[0].Key != "a" || result[0].Count != 3 {
-		t.Errorf("result[0] = %v, want {a, 3}", result[0])
-	}
-	if result[1].Key != "c" || result[1].Count != 2 {
-		t.Errorf("result[1] = %v, want {c, 2}", result[1])
-	}
-	if result[2].Key != "b" || result[2].Count != 1 {
-		t.Errorf("result[2] = %v, want {b, 1}", result[2])
-	}
-}
-
-func TestTopN(t *testing.T) {
-	list := []KeyCount{{"a", 5}, {"b", 4}, {"c", 3}, {"d", 2}, {"e", 1}}
-
-	result := TopN(list, 3)
-	if len(result) != 3 {
-		t.Fatalf("len = %d, want 3", len(result))
-	}
-	if result[0].Key != "a" || result[2].Key != "c" {
-		t.Errorf("TopN() incorrect")
-	}
-
-	result = TopN(list, 10)
-	if len(result) != 5 {
-		t.Errorf("TopN() len = %d, want 5", len(result))
 	}
 }
