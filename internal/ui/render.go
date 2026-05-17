@@ -80,26 +80,55 @@ func RenderStats(result stats.StatsResult) string {
 	renderDashboard(&output, result)
 	output.WriteString("\n")
 
-	// 渲染状态码卡片
-	renderStatusCard(&output, result)
+	// 第一排：左侧状态码+UA垂直堆叠，右侧时间分布
+	statusCard := renderStatusCardToString(result)
+	uaCard := renderUACardToString(result)
+	leftColumn := lipgloss.JoinVertical(lipgloss.Top, statusCard, uaCard)
+	hourlyCard := renderHourlyCardToString(result)
+	output.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, "  ", hourlyCard))
 	output.WriteString("\n")
 
-	// 渲染时间分布卡片
-	renderHourlyCard(&output, result)
-	output.WriteString("\n")
-
-	// 渲染 IP 卡片
-	renderIPCard(&output, result)
-	output.WriteString("\n")
-
-	// 渲染 URL 卡片
-	renderURLCard(&output, result)
-	output.WriteString("\n")
-
-	// 渲染 UA 卡片
-	renderUACard(&output, result)
+	// 第二排：IP 卡片 + URL 卡片并排
+	ipCard := renderIPCardToString(result)
+	urlCard := renderURLCardToString(result)
+	output.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, ipCard, "  ", urlCard))
 
 	return output.String()
+}
+
+// renderIPCardToString 渲染 IP 卡片并返回字符串
+func renderIPCardToString(result stats.StatsResult) string {
+	var sb strings.Builder
+	renderIPCard(&sb, result)
+	return sb.String()
+}
+
+// renderURLCardToString 渲染 URL 卡片并返回字符串
+func renderURLCardToString(result stats.StatsResult) string {
+	var sb strings.Builder
+	renderURLCard(&sb, result)
+	return sb.String()
+}
+
+// renderStatusCardToString 渲染状态码卡片并返回字符串
+func renderStatusCardToString(result stats.StatsResult) string {
+	var sb strings.Builder
+	renderStatusCard(&sb, result)
+	return sb.String()
+}
+
+// renderHourlyCardToString 渲染时间分布卡片并返回字符串
+func renderHourlyCardToString(result stats.StatsResult) string {
+	var sb strings.Builder
+	renderHourlyCard(&sb, result)
+	return sb.String()
+}
+
+// renderUACardToString 渲染 UA 卡片并返回字符串
+func renderUACardToString(result stats.StatsResult) string {
+	var sb strings.Builder
+	renderUACard(&sb, result)
+	return sb.String()
 }
 
 // renderDashboard 渲染仪表盘卡片
